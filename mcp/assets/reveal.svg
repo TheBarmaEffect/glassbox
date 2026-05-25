@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Glassbox · embeddable animated SVG (SMIL).
+  Drop into a GitHub README or social preview; plays automatically in any
+  browser. Loops on a 15s cycle to keep the file size lean.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" width="1200" height="600" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Glassbox reveal">
+  <defs>
+    <linearGradient id="brandGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#b8b8c0"/>
+    </linearGradient>
+    <linearGradient id="barGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#00d9d9"/>
+      <stop offset="100%" stop-color="#00ffcc"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#00d9d9" stop-opacity="0.25"/>
+      <stop offset="60%" stop-color="#00d9d9" stop-opacity="0"/>
+    </radialGradient>
+    <style>
+      .brand { font: 800 96px -apple-system, "Inter", "Helvetica Neue", sans-serif; letter-spacing: -3px; fill: url(#brandGrad); }
+      .tagline { font: 300 26px -apple-system, "Inter", sans-serif; fill: #f5f5f7; }
+      .accent { fill: #00d9d9; }
+      .mono { font: 18px ui-monospace, "SF Mono", Menlo, monospace; fill: #6e6e73; letter-spacing: 1.5px; }
+      .stamp-text { font: 800 88px -apple-system, "Inter", sans-serif; fill: #ff3b3b; letter-spacing: -2px; }
+      .verdict-label { font: 18px ui-monospace, monospace; fill: #6e6e73; letter-spacing: 3px; }
+      .ecs-label { font: 18px ui-monospace, monospace; fill: #f5f5f7; }
+      .ecs-value { font: 18px ui-monospace, monospace; fill: #00d9d9; }
+      .credit-line { font: 24px -apple-system, sans-serif; fill: #f5f5f7; }
+      .credit-aura { font: 20px ui-monospace, monospace; fill: #00d9d9; letter-spacing: 2.5px; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="600" fill="#000"/>
+
+  <!-- Glow halo -->
+  <circle cx="600" cy="300" r="350" fill="url(#glow)" opacity="0">
+    <animate attributeName="opacity" values="0;0.8;0.8;0;0" keyTimes="0;0.06;0.23;0.30;1" dur="15s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- ============ Scene 1: Title (0–3s) ============ -->
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.04;0.18;0.22;1" dur="15s" repeatCount="indefinite"/>
+    <text x="600" y="330" text-anchor="middle" class="brand">GLASSBOX</text>
+  </g>
+
+  <!-- ============ Scene 2: Tagline (3–6s) ============ -->
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.20;0.24;0.36;0.40;1" dur="15s" repeatCount="indefinite"/>
+    <text x="600" y="280" text-anchor="middle" class="tagline">Runtime <tspan class="accent">constitutional verification</tspan> for AI answers.</text>
+    <text x="600" y="330" text-anchor="middle" class="mono">v1.0.0 · MCP Native</text>
+  </g>
+
+  <!-- ============ Scene 3: Verdict (6–9s) ============ -->
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.38;0.42;0.56;0.60;1" dur="15s" repeatCount="indefinite"/>
+    <text x="600" y="200" text-anchor="middle" class="verdict-label">VERDICT</text>
+    <g transform="translate(600,310)">
+      <rect x="-200" y="-65" width="400" height="130" rx="8" fill="none" stroke="#ff3b3b" stroke-width="5"
+            transform="rotate(-3)"/>
+      <text y="20" text-anchor="middle" class="stamp-text" transform="rotate(-3)">REJECT</text>
+    </g>
+    <text x="600" y="430" text-anchor="middle" class="credit-line" fill="#6e6e73">
+      Critical fabrication detected · Constitutional rules violated
+    </text>
+  </g>
+
+  <!-- ============ Scene 4: ECS bars (9–12s) ============ -->
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.56;0.60;0.78;0.82;1" dur="15s" repeatCount="indefinite"/>
+    <text x="600" y="120" text-anchor="middle" class="mono">EPISTEMIC CONFIDENCE SCORE</text>
+
+    <!-- bar row template -->
+    <g transform="translate(280,180)">
+      <text class="ecs-label">G   Groundedness</text>
+      <rect x="200" y="-16" width="500" height="20" rx="3" fill="#1a1a1d"/>
+      <rect x="200" y="-16" width="0" height="20" rx="3" fill="url(#barGrad)">
+        <animate attributeName="width" values="0;500;500;500;500" keyTimes="0;0.66;0.78;0.82;1" dur="15s" repeatCount="indefinite"/>
+      </rect>
+      <text x="720" class="ecs-value">1.0000</text>
+    </g>
+
+    <g transform="translate(280,220)">
+      <text class="ecs-label">C   Coherence</text>
+      <rect x="200" y="-16" width="500" height="20" rx="3" fill="#1a1a1d"/>
+      <rect x="200" y="-16" width="0" height="20" rx="3" fill="url(#barGrad)">
+        <animate attributeName="width" values="0;0;500;500;500" keyTimes="0;0.62;0.69;0.82;1" dur="15s" repeatCount="indefinite"/>
+      </rect>
+      <text x="720" class="ecs-value">1.0000</text>
+    </g>
+
+    <g transform="translate(280,260)">
+      <text class="ecs-label">K   Calibration</text>
+      <rect x="200" y="-16" width="500" height="20" rx="3" fill="#1a1a1d"/>
+      <rect x="200" y="-16" width="0" height="20" rx="3" fill="url(#barGrad)">
+        <animate attributeName="width" values="0;0;0;293.75;293.75;293.75" keyTimes="0;0.63;0.65;0.71;0.82;1" dur="15s" repeatCount="indefinite"/>
+      </rect>
+      <text x="720" class="ecs-value">0.5875</text>
+    </g>
+
+    <g transform="translate(280,300)">
+      <text class="ecs-label">R   Red-team resistance</text>
+      <rect x="200" y="-16" width="500" height="20" rx="3" fill="#1a1a1d"/>
+      <rect x="200" y="-16" width="0" height="20" rx="3" fill="url(#barGrad)">
+        <animate attributeName="width" values="0;0;0;0;214.3;214.3;214.3" keyTimes="0;0.65;0.67;0.69;0.74;0.82;1" dur="15s" repeatCount="indefinite"/>
+      </rect>
+      <text x="720" class="ecs-value">0.4286</text>
+    </g>
+
+    <g transform="translate(280,340)">
+      <text class="ecs-label">CC  Constitutional compliance</text>
+      <rect x="200" y="-16" width="500" height="20" rx="3" fill="#1a1a1d"/>
+      <text x="720" class="ecs-value">0.0000</text>
+    </g>
+
+    <text x="600" y="430" text-anchor="middle" class="credit-line">
+      ECS total <tspan class="accent" font-weight="600">0.6032</tspan>
+    </text>
+  </g>
+
+  <!-- ============ Scene 5: Closing (12–15s) ============ -->
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.78;0.84;1" dur="15s" repeatCount="indefinite"/>
+    <text x="600" y="290" text-anchor="middle" class="brand">GLASSBOX</text>
+    <text x="600" y="370" text-anchor="middle" class="mono">OPEN SOURCE · APACHE 2.0 · MCP NATIVE</text>
+    <text x="600" y="420" text-anchor="middle" class="credit-line">Built by <tspan font-weight="600">Karthik Barma</tspan> · MS AI · Northeastern</text>
+    <text x="600" y="460" text-anchor="middle" class="credit-aura">POWERED BY AURA</text>
+  </g>
+
+  <!-- Vignette overlay (subtle) -->
+  <radialGradient id="vignette" cx="0.5" cy="0.5" r="0.7">
+    <stop offset="40%" stop-color="#000" stop-opacity="0"/>
+    <stop offset="100%" stop-color="#000" stop-opacity="0.6"/>
+  </radialGradient>
+  <rect width="1200" height="600" fill="url(#vignette)" pointer-events="none"/>
+</svg>

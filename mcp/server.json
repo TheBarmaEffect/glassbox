@@ -1,0 +1,53 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.thebarmaeffect/glassbox-framework",
+  "description": "Glass Box Framework MCP server — runtime constitutional verification for AI answers. Every claim carries a reasoning chain. Every score breaks down. Every verdict is traceable. Six tools: verify_answer, extract_claims, score_ecs, red_team (Glassbox Court), generate_trust_card, export_audit_report.",
+  "repository": {
+    "url": "https://github.com/TheBarmaEffect/glassbox",
+    "source": "github"
+  },
+  "version": "1.0.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@glassbox-framework/mcp",
+      "version": "1.0.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "description": "Your Anthropic API key (sk-ant-...). Required for the claim extractor, red team, constitution engines, and ECS coherence checks. One v1 tool (generate_trust_card) works without an API key — it's pure assembly + deterministic audit hashing.",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "GLASSBOX_MODEL",
+          "description": "Override the Claude model used by the verification engines. Defaults to claude-sonnet-4-6.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string",
+          "default": "claude-sonnet-4-6"
+        },
+        {
+          "name": "GLASSBOX_MAX_TOKENS",
+          "description": "Per-engine-call max-tokens cap. Defaults to 2048; raise for verifying long-form content.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string",
+          "default": "2048"
+        },
+        {
+          "name": "GLASSBOX_ECS_MODE",
+          "description": "ECS aggregation mode: arithmetic (weighted mean, default) or geometric (stricter — any zero dimension collapses the total).",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string",
+          "default": "arithmetic"
+        }
+      ]
+    }
+  ]
+}

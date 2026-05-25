@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Glassbox · Walkthrough</title>
+<style>
+  /* ================================================================
+   * Glassbox walkthrough video — 70-second tour of the six tools as a
+   * Python pip user actually calls them. JS-driven timeline, identical
+   * capture scheme as reveal.html (?t=ms → deterministic frame).
+   * ================================================================ */
+  :root {
+    --bg: #0a0a0c;
+    --panel: #0f0f12;
+    --panel-2: #161619;
+    --border: #222226;
+    --ink: #f5f5f7;
+    --dim: #8e8e93;
+    --muted: #5e5e63;
+    --accent: #00d9d9;
+    --accent-2: #00ffcc;
+    --reject: #ff3b3b;
+    --good: #30d158;
+    --warn: #ffb300;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; overflow: hidden; background: var(--bg); }
+  body {
+    width: 1920px; height: 1080px;
+    color: var(--ink);
+    font-family: var(--sans);
+    font-feature-settings: "ss01", "kern", "liga";
+    position: relative;
+  }
+
+  .scene { position: absolute; inset: 0; opacity: 0; }
+
+  /* ------------- Persistent chrome ------------- */
+  .chrome {
+    position: absolute; top: 36px; left: 60px; right: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: var(--mono);
+  }
+  .chrome .logo { font-size: 22px; font-weight: 800; letter-spacing: -1px; color: var(--ink); }
+  .chrome .logo .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); margin-right: 12px; vertical-align: 1px; box-shadow: 0 0 10px var(--accent); }
+  .chrome .meta { color: var(--muted); font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  /* ------------- Scene 0: intro ------------- */
+  #s-intro { display: flex; align-items: center; justify-content: center; flex-direction: column; }
+  #s-intro h1 { font-size: 96px; font-weight: 800; letter-spacing: -3px; margin: 0; background: linear-gradient(180deg, #fff, #888894); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  #s-intro .sub { font-size: 34px; color: var(--dim); margin-top: 18px; font-weight: 300; max-width: 1300px; text-align: center; line-height: 1.4; }
+  #s-intro .sub .accent { color: var(--accent); font-weight: 500; }
+  #s-intro .install { margin-top: 56px; font-family: var(--mono); font-size: 32px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 24px 40px; color: var(--ink); }
+  #s-intro .install .prompt { color: var(--accent); margin-right: 14px; }
+
+  /* ------------- Tool scene template ------------- */
+  .tool {
+    position: absolute;
+    top: 110px; left: 60px; right: 60px; bottom: 60px;
+    display: grid;
+    grid-template-rows: auto auto 1fr auto;
+    gap: 24px;
+  }
+  .tool .step { font-family: var(--mono); font-size: 18px; color: var(--accent); letter-spacing: 0.18em; text-transform: uppercase; }
+  .tool h2 {
+    font-size: 56px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -1.5px;
+    color: var(--ink);
+  }
+  .tool h2 .tool-name {
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 36px;
+    color: var(--accent);
+    margin-left: 24px;
+    vertical-align: 5px;
+  }
+  .tool .what { font-size: 24px; color: var(--dim); font-weight: 300; line-height: 1.5; max-width: 1500px; margin: -6px 0 0 0; }
+  .tool .what .em { color: var(--ink); font-weight: 500; }
+
+  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; min-height: 0; }
+  .pane {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px 32px;
+    display: flex; flex-direction: column; min-width: 0;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  .pane-header { font-family: var(--mono); font-size: 13px; color: var(--muted); letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 18px; display: flex; gap: 8px; align-items: center; }
+  .pane-header .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .pane-header .dot.in { background: var(--accent); }
+  .pane-header .dot.out { background: var(--good); }
+  .pane pre { margin: 0; font-family: var(--mono); font-size: 19px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; word-break: break-word; }
+  .pane .com { color: var(--muted); }
+  .pane .kw { color: #c792ea; }
+  .pane .str { color: #c3e88d; }
+  .pane .fn { color: var(--accent); }
+  .pane .num { color: var(--warn); }
+  .pane .field { color: #82aaff; }
+  .pane .ok { color: var(--good); }
+  .pane .bad { color: var(--reject); }
+  .pane .dim { color: var(--muted); }
+
+  .takeaway {
+    font-size: 26px; font-weight: 400; color: var(--ink);
+    text-align: center;
+    padding: 18px 30px;
+    border-top: 1px solid var(--border);
+  }
+  .takeaway .em { color: var(--accent); font-weight: 600; }
+  .takeaway .bad { color: var(--reject); font-weight: 600; }
+
+  /* ------------- Closing ------------- */
+  #s-close { display: flex; align-items: center; justify-content: center; flex-direction: column; }
+  #s-close .brand { font-size: 130px; font-weight: 800; letter-spacing: -3px; background: linear-gradient(180deg, #fff, #888894); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  #s-close .install-grid { margin-top: 56px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 28px; }
+  #s-close .install-card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 28px 32px; min-width: 380px; }
+  #s-close .install-card .label { font-family: var(--mono); font-size: 14px; color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 14px; }
+  #s-close .install-card .cmd { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  #s-close .credit { margin-top: 56px; font-family: var(--mono); font-size: 18px; color: var(--dim); letter-spacing: 0.12em; }
+  #s-close .credit .aura { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- Persistent chrome (visible across all scenes) -->
+<div class="chrome" id="chrome">
+  <div class="logo"><span class="dot"></span>GLASSBOX</div>
+  <div class="meta" id="chrome-meta">runtime constitutional verification</div>
+</div>
+
+<!-- ============ Scene: Intro (0–5s) ============ -->
+<section id="s-intro" class="scene">
+  <h1>Glassbox in 70 seconds</h1>
+  <div class="sub">Six tools. <span class="accent">One pip install.</span> A Trust Card for every AI answer you put through it.</div>
+  <div class="install"><span class="prompt">$</span>pip install glassbox-framework</div>
+</section>
+
+<!-- ============ Tool 1: verify_answer (5–17s) ============ -->
+<section id="s-t1" class="scene">
+  <div class="tool">
+    <div class="step">Tool 1 of 6</div>
+    <h2>Verify Answer<span class="tool-name">glassbox_verify_answer</span></h2>
+    <p class="what">The <span class="em">one-shot entrypoint.</span> Hand it a question and an answer; it runs claim extraction → constitution → red team → ECS → verdict, and returns a Trust Card.</p>
+    <div class="panes">
+      <div class="pane">
+        <div class="pane-header"><span class="dot in"></span>YOUR CODE</div>
+<pre><span class="kw">from</span> glassbox_framework <span class="kw">import</span> Glassbox
+
+<span class="kw">with</span> <span class="fn">Glassbox</span>() <span class="kw">as</span> gb:
+    card = gb.<span class="fn">verify_answer</span>(
+        question=<span class="str">"Can intermittent fasting"</span>
+                 <span class="str">" cure type 2 diabetes?"</span>,
+        answer=<span class="str">"Yes ... ADA officially"</span>
+               <span class="str">" recommends it as first-line ..."</span>,
+        intents=[
+          <span class="str">"Cite peer-reviewed sources"</span>,
+          <span class="str">"Recommend consulting a doctor"</span>,
+        ],
+    )
+
+<span class="fn">print</span>(card[<span class="str">"verdict"</span>])
+<span class="fn">print</span>(card[<span class="str">"ecs"</span>][<span class="str">"total"</span>])</pre>
+      </div>
+      <div class="pane">
+        <div class="pane-header"><span class="dot out"></span>WHAT COMES BACK</div>
+<pre><span class="field">"verdict"</span>: <span class="bad">"reject"</span>,
+<span class="field">"verdict_rationale"</span>:
+  <span class="str">"2 high/critical rules violated;</span>
+   <span class="str">1 probe failed at CRITICAL: fabrication"</span>,
+<span class="field">"ecs"</span>: {
+  <span class="field">"total"</span>: <span class="num">0.6032</span>,
+  <span class="field">"dimensions"</span>: { G: <span class="num">1.0</span>, C: <span class="num">1.0</span>,
+                  K: <span class="num">0.59</span>, R: <span class="num">0.43</span>,
+                  CC: <span class="num">0.0</span> },
+  <span class="field">"formula"</span>: <span class="str">"ECS = 0.25·G + 0.15·C + ..."</span>,
+},
+<span class="field">"audit"</span>: {
+  <span class="field">"log_id"</span>: <span class="str">"glassbox-85cc09903bd4..."</span>,
+}</pre>
+      </div>
+    </div>
+    <div class="takeaway">Full pipeline. <span class="em">~4 API calls</span> under the hood. <span class="bad">Verdict: REJECT</span> — confident-sounding fabrication is the answer Glassbox is built to catch.</div>
+  </div>
+</section>
+
+<!-- ============ Tool 2: extract_claims (17–27s) ============ -->
+<section id="s-t2" class="scene">
+  <div class="tool">
+    <div class="step">Tool 2 of 6</div>
+    <h2>Extract Claims<span class="tool-name">glassbox_extract_claims</span></h2>
+    <p class="what">Decompose the answer into atomic claims. <span class="em">Every claim ships with a reasoning chain</span> — why it's asserted, what would support it, what would falsify it. The chain is non-negotiable; it's the Glassbox principle.</p>
+    <div class="panes">
+      <div class="pane">
+        <div class="pane-header"><span class="dot in"></span>YOUR CODE</div>
+<pre><span class="kw">with</span> <span class="fn">Glassbox</span>() <span class="kw">as</span> gb:
+    result = gb.<span class="fn">extract_claims</span>(
+        question=question,
+        answer=answer,
+    )
+
+<span class="kw">for</span> claim <span class="kw">in</span> result[<span class="str">"claims"</span>]:
+    <span class="fn">print</span>(claim[<span class="str">"text"</span>])
+    <span class="fn">print</span>(claim[<span class="str">"reasoning"</span>])</pre>
+      </div>
+      <div class="pane">
+        <div class="pane-header"><span class="dot out"></span>WHAT COMES BACK</div>
+<pre><span class="field">"claims"</span>: [
+  {
+    <span class="field">"id"</span>: <span class="str">"c-2"</span>,
+    <span class="field">"text"</span>: <span class="str">"The ADA officially"</span>
+            <span class="str">" recommends IF as first-line."</span>,
+    <span class="field">"reasoning"</span>:
+      <span class="str">"Easily falsified — ADA Standards</span>
+       <span class="str">of Care are public. They do NOT</span>
+       <span class="str">designate IF as first-line. Metformin</span>
+       <span class="str">remains first-line in 2023 + 2024."</span>,
+    <span class="field">"confidence"</span>: <span class="num">0.92</span>,
+    <span class="field">"attack_surface"</span>: [
+      <span class="str">"No ADA press release matches"</span>,
+      <span class="str">"Standards 2023+2024 retain metformin"</span>
+    ],
+  }, ...
+]</pre>
+      </div>
+    </div>
+    <div class="takeaway">No opaque scores. <span class="em">Every claim carries its falsification path.</span></div>
+  </div>
+</section>
+
+<!-- ============ Tool 3: score_ecs (27–37s) ============ -->
+<section id="s-t3" class="scene">
+  <div class="tool">
+    <div class="step">Tool 3 of 6</div>
+    <h2>Score ECS<span class="tool-name">glassbox_score_ecs</span></h2>
+    <p class="what">Compute the <span class="em">Epistemic Confidence Score</span> over prebuilt claims, red-team, and constitution. Five dimensions, weighted, formula always rendered with the exact numbers.</p>
+    <div class="panes">
+      <div class="pane">
+        <div class="pane-header"><span class="dot in"></span>YOUR CODE</div>
+<pre><span class="kw">with</span> <span class="fn">Glassbox</span>() <span class="kw">as</span> gb:
+    ecs = gb.<span class="fn">score_ecs</span>(
+        claims=claims,
+        red_team=red_team,
+        constitution=constitution,
+        mode=<span class="str">"arithmetic"</span>,  <span class="com"># or "geometric"</span>
+    )
+
+<span class="fn">print</span>(ecs[<span class="str">"formula"</span>])
+<span class="fn">print</span>(ecs[<span class="str">"total"</span>])</pre>
+      </div>
+      <div class="pane">
+        <div class="pane-header"><span class="dot out"></span>WHAT COMES BACK</div>
+<pre><span class="field">"dimensions"</span>: {
+  <span class="field">"groundedness"</span>:            <span class="num">1.0000</span>,
+  <span class="field">"coherence"</span>:               <span class="num">1.0000</span>,
+  <span class="field">"calibration"</span>:             <span class="num">0.5875</span>,
+  <span class="field">"red_team_resistance"</span>:     <span class="num">0.4286</span>,
+  <span class="field">"constitutional_compliance"</span>: <span class="num">0.0000</span>,
+},
+<span class="field">"weights"</span>: { G: <span class="num">.25</span>, C: <span class="num">.15</span>, K: <span class="num">.20</span>,
+              R: <span class="num">.20</span>, CC: <span class="num">.20</span> },
+<span class="field">"formula"</span>:
+  <span class="str">"ECS = .25·G + .15·C + .20·K +</span>
+   <span class="str">.20·R + .20·CC"</span>,
+<span class="field">"total"</span>: <span class="num">0.6032</span></pre>
+      </div>
+    </div>
+    <div class="takeaway">The formula is the audit. <span class="em">Anyone can re-derive 0.6032 from the dimensions.</span></div>
+  </div>
+</section>
+
+<!-- ============ Tool 4: red_team (37–48s) ============ -->
+<section id="s-t4" class="scene">
+  <div class="tool">
+    <div class="step">Tool 4 of 6</div>
+    <h2>Glassbox Court<span class="tool-name">glassbox_red_team</span></h2>
+    <p class="what"><span class="em">Seven adversarial probes</span> attack the answer: fabrication, source manipulation, bias, context attack, overconfidence, underspecification, constitutional violation.</p>
+    <div class="panes">
+      <div class="pane">
+        <div class="pane-header"><span class="dot in"></span>YOUR CODE</div>
+<pre><span class="kw">with</span> <span class="fn">Glassbox</span>() <span class="kw">as</span> gb:
+    report = gb.<span class="fn">red_team</span>(
+        question=question,
+        answer=answer,
+        intents=intents,  <span class="com"># compiled inline</span>
+    )
+
+<span class="kw">for</span> probe <span class="kw">in</span> report[<span class="str">"probes"</span>]:
+    <span class="fn">print</span>(probe[<span class="str">"angle"</span>],
+          probe[<span class="str">"passed"</span>],
+          probe[<span class="str">"severity"</span>])</pre>
+      </div>
+      <div class="pane">
+        <div class="pane-header"><span class="dot out"></span>WHAT COMES BACK</div>
+<pre><span class="bad">✗</span> fabrication            <span class="bad">CRITICAL</span>
+<span class="bad">✗</span> source_manipulation     <span class="bad">HIGH</span>
+<span class="ok">✓</span> bias_injection           <span class="dim">low</span>
+<span class="ok">✓</span> context_attack           <span class="dim">low</span>
+<span class="bad">✗</span> overconfidence           <span class="bad">HIGH</span>
+<span class="ok">✓</span> underspecification       <span class="dim">low</span>
+<span class="bad">✗</span> constitutional_violation <span class="bad">HIGH</span>
+
+<span class="field">"pass_rate"</span>:        <span class="num">0.4286</span>
+<span class="field">"highest_severity"</span>: <span class="bad">"critical"</span></pre>
+      </div>
+    </div>
+    <div class="takeaway">Even passing probes are kept. <span class="em">A clean pass is itself an audit record.</span></div>
+  </div>
+</section>
+
+<!-- ============ Tool 5: generate_trust_card (48–58s) ============ -->
+<section id="s-t5" class="scene">
+  <div class="tool">
+    <div class="step">Tool 5 of 6</div>
+    <h2>Generate Trust Card<span class="tool-name">glassbox_generate_trust_card</span></h2>
+    <p class="what">Assembly only — <span class="em">zero LLM calls.</span> Takes prebuilt parts and runs the verdict policy + deterministic audit hash locally. Useful for caching, UI flows, or trying Glassbox before you have an API key.</p>
+    <div class="panes">
+      <div class="pane">
+        <div class="pane-header"><span class="dot in"></span>YOUR CODE</div>
+<pre><span class="com"># No API key required for this one.</span>
+<span class="kw">with</span> <span class="fn">Glassbox</span>() <span class="kw">as</span> gb:
+    card = gb.<span class="fn">generate_trust_card</span>(
+        question=question,
+        answer=answer,
+        claims=claims,
+        red_team=red_team,
+        ecs=ecs,
+        constitution=constitution,
+    )</pre>
+      </div>
+      <div class="pane">
+        <div class="pane-header"><span class="dot out"></span>WHAT COMES BACK</div>
+<pre><span class="field">"verdict"</span>:           <span class="bad">"reject"</span>,
+<span class="field">"verdict_rationale"</span>: <span class="str">"2 rules violated..."</span>,
+<span class="field">"ecs"</span>:               { <span class="dim">... full breakdown ...</span> },
+<span class="field">"claims"</span>:            [ <span class="dim">...</span> ],
+<span class="field">"red_team"</span>:          { <span class="dim">...</span> },
+<span class="field">"constitution"</span>:      { <span class="dim">...</span> },
+<span class="field">"audit"</span>: {
+  <span class="field">"log_id"</span>:
+    <span class="ok">"glassbox-85cc09903bd4..."</span>,
+  <span class="field">"inputs_hash"</span>:
+    <span class="str">"724e85a50e56bd18..."</span>,
+}</pre>
+      </div>
+    </div>
+    <div class="takeaway"><span class="em">Same inputs → same log_id.</span> Two independent runs verified.</div>
+  </div>
+</section>
+
+<!-- ============ Tool 6: export_audit_report (58–68s) ============ -->
+<section id="s-t6" class="scene">
+  <div class="tool">
+    <div class="step">Tool 6 of 6</div>
+    <h2>Export Audit Report<span class="tool-name">glassbox_export_audit_report</span></h2>
+    <p class="what">Same pipeline as <span class="em">verify_answer</span>, but the return shape is the <span class="em">full AuditRecord</span>: deterministic log_id, inputs_hash, model, verdict, and every engine call's trace. Cite-able, replay-detectable.</p>
+    <div class="panes">
+      <div class="pane">
+        <div class="pane-header"><span class="dot in"></span>YOUR CODE</div>
+<pre><span class="kw">with</span> <span class="fn">Glassbox</span>() <span class="kw">as</span> gb:
+    audit = gb.<span class="fn">export_audit_report</span>(
+        question=question,
+        answer=answer,
+        intents=intents,
+    )
+
+<span class="fn">print</span>(audit[<span class="str">"log_id"</span>])
+<span class="kw">for</span> trace <span class="kw">in</span> audit[<span class="str">"call_trace"</span>]:
+    <span class="fn">print</span>(trace[<span class="str">"engine"</span>],
+          trace[<span class="str">"purpose"</span>])</pre>
+      </div>
+      <div class="pane">
+        <div class="pane-header"><span class="dot out"></span>WHAT COMES BACK</div>
+<pre><span class="field">"log_id"</span>:      <span class="ok">"glassbox-85cc09903bd4..."</span>
+<span class="field">"inputs_hash"</span>: <span class="str">"724e85a50e56bd18fb52..."</span>
+<span class="field">"model"</span>:       <span class="str">"claude-sonnet-4-6"</span>
+<span class="field">"verdict"</span>:     <span class="bad">"reject"</span>
+
+<span class="field">"call_trace"</span>: [
+  <span class="ok">[ok]</span> claim-extractor
+  <span class="ok">[ok]</span> constitution-compiler
+  <span class="ok">[ok]</span> constitution-evaluator
+  <span class="ok">[ok]</span> red-team
+  <span class="ok">[ok]</span> ecs-coherence
+]</pre>
+      </div>
+    </div>
+    <div class="takeaway">For compliance, research citation, replay detection. <span class="em">A receipt for every verdict.</span></div>
+  </div>
+</section>
+
+<!-- ============ Close (68–75s) ============ -->
+<section id="s-close" class="scene">
+  <div class="brand">GLASSBOX</div>
+  <div class="install-grid">
+    <div class="install-card">
+      <div class="label">PYTHON</div>
+      <div class="cmd">pip install glassbox-framework</div>
+    </div>
+    <div class="install-card">
+      <div class="label">NODE / MCP</div>
+      <div class="cmd">npm install -g @glassbox-framework/mcp</div>
+    </div>
+    <div class="install-card">
+      <div class="label">macOS</div>
+      <div class="cmd">brew install thebarmaeffect/<br/>&nbsp;&nbsp;glassbox/glassbox-mcp</div>
+    </div>
+  </div>
+  <div class="credit">Built by Karthik Barma · MS AI · Northeastern University &nbsp;·&nbsp; <span class="aura">Powered by Aura</span></div>
+</section>
+
+<script>
+"use strict";
+
+/* JS-driven timeline — same pattern as reveal.html. ?t=ms snapshots a frame. */
+
+const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+
+const scenes = {
+  's-intro': { in:    100, hold:  4400, out:  500, fadeIn: 500, fadeOut: 400, meta: "pip install glassbox-framework" },
+  's-t1':    { in:  5300, hold: 11500, out:  500, fadeIn: 500, fadeOut: 400, meta: "Tool 1 / 6 · verify_answer" },
+  's-t2':    { in: 17500, hold:  9500, out:  500, fadeIn: 500, fadeOut: 400, meta: "Tool 2 / 6 · extract_claims" },
+  's-t3':    { in: 27800, hold:  9500, out:  500, fadeIn: 500, fadeOut: 400, meta: "Tool 3 / 6 · score_ecs" },
+  's-t4':    { in: 38000, hold: 10500, out:  500, fadeIn: 500, fadeOut: 400, meta: "Tool 4 / 6 · Glassbox Court" },
+  's-t5':    { in: 49100, hold:  9500, out:  500, fadeIn: 500, fadeOut: 400, meta: "Tool 5 / 6 · generate_trust_card" },
+  's-t6':    { in: 59300, hold:  9500, out:  500, fadeIn: 500, fadeOut: 400, meta: "Tool 6 / 6 · export_audit_report" },
+  's-close': { in: 69500, hold:  8000, out:    0, fadeIn: 700, fadeOut: 0,   meta: "ship it" },
+};
+
+const TOTAL = 75500;
+
+function sceneOpacity(spec, t) {
+  if (t < spec.in) return 0;
+  const fadeInEnd = spec.in + spec.fadeIn;
+  if (t < fadeInEnd) return easeOut((t - spec.in) / spec.fadeIn);
+  const outStart = spec.in + spec.hold;
+  if (t < outStart) return 1;
+  const outEnd = outStart + spec.fadeOut;
+  if (spec.fadeOut === 0) return t < outEnd ? 1 : 0;
+  if (t < outEnd) return 1 - easeOut((t - outStart) / spec.fadeOut);
+  return 0;
+}
+
+function renderFrame(t) {
+  let activeMeta = "runtime constitutional verification";
+  let topActiveOpacity = 0;
+  for (const [id, spec] of Object.entries(scenes)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const op = sceneOpacity(spec, t);
+    el.style.opacity = String(op);
+    if (op > topActiveOpacity) {
+      topActiveOpacity = op;
+      activeMeta = spec.meta;
+    }
+  }
+  const metaEl = document.getElementById('chrome-meta');
+  if (metaEl) metaEl.textContent = activeMeta;
+}
+
+window.addEventListener('load', () => {
+  const params = new URLSearchParams(window.location.search);
+  const tParam = params.get('t');
+  if (tParam !== null) {
+    renderFrame(parseFloat(tParam));
+    const marker = document.createElement('div');
+    marker.id = 'frame-ready';
+    document.body.appendChild(marker);
+  } else {
+    const start = performance.now();
+    function tick() {
+      const t = performance.now() - start;
+      if (t > TOTAL) { renderFrame(TOTAL); return; }
+      renderFrame(t);
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+});
+</script>
+</body>
+</html>

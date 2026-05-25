@@ -1,0 +1,98 @@
+# Smithery.ai manifest for Glass Box Framework.
+#
+# Smithery (https://smithery.ai) is the MCP-specific package marketplace.
+# Connecting Glassbox here is how MCP-aware tools (Claude Desktop, Cursor,
+# Cline, Continue, custom hosts) discover and one-click-install the server.
+#
+# To register:
+#   1. Visit https://smithery.ai and sign in with GitHub
+#   2. Add the TheBarmaEffect/glassbox repository
+#   3. Smithery auto-detects this manifest and adds Glassbox to the registry
+#
+# Update process: on each release, push a new tag and Smithery re-builds.
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    required:
+      - anthropicApiKey
+    properties:
+      anthropicApiKey:
+        type: string
+        title: Anthropic API key
+        description: >-
+          Your Anthropic API key (sk-ant-...). Used by Glassbox's claim
+          extractor, red team, and ECS coherence engines. Issue one at
+          https://console.anthropic.com/settings/keys
+      model:
+        type: string
+        title: Verification model
+        default: claude-sonnet-4-6
+        description: >-
+          The Claude model used for the internal verification engines.
+          Defaults to claude-sonnet-4-6 (strong reasoning at low cost).
+          Override to use a different Claude model.
+      maxTokens:
+        type: integer
+        title: Max tokens per engine call
+        default: 2048
+        minimum: 256
+        maximum: 8192
+        description: >-
+          Per-call token cap for each verification engine. 2048 is enough
+          for most answers; raise if you're verifying long-form content.
+      ecsMode:
+        type: string
+        title: ECS aggregation mode
+        default: arithmetic
+        enum: [arithmetic, geometric]
+        description: >-
+          arithmetic = weighted mean (default, balanced).
+          geometric  = strict — any zero dimension collapses the total to ~0.
+  commandFunction: |
+    (config) => ({
+      command: "npx",
+      args: ["-y", "@glassbox-framework/mcp"],
+      env: {
+        ANTHROPIC_API_KEY: config.anthropicApiKey,
+        GLASSBOX_MODEL: config.model || "claude-sonnet-4-6",
+        GLASSBOX_MAX_TOKENS: String(config.maxTokens || 2048),
+        GLASSBOX_ECS_MODE: config.ecsMode || "arithmetic"
+      }
+    })
+
+description: |
+  Runtime constitutional verification for AI answers.
+
+  Hand Glassbox a (question, answer) pair and it returns a Trust Card:
+    • Atomic claims, each with a reasoning chain
+    • Epistemic Confidence Score (ECS) with published formula and breakdown
+    • 7-angle red team (Glassbox Court): fabrication, source manipulation,
+      bias injection, context attack, overconfidence, underspecification,
+      constitutional violation
+    • Constitution — your natural-language deployer intents compiled into
+      runtime rules
+    • Verdict (trust / caution / reject) with the reasoning that derived it
+    • Deterministic SHA-256 audit log_id — identical inputs reproduce the
+      same identifier across runs
+
+  Built by Karthik Barma · MS AI · Northeastern University.
+  Powered by Aura.
+
+tags:
+  - ai-safety
+  - constitutional-ai
+  - verification
+  - trust
+  - red-team
+  - audit
+  - claude
+  - anthropic
+  - mcp
+
+links:
+  homepage: https://github.com/TheBarmaEffect/glassbox
+  source: https://github.com/TheBarmaEffect/glassbox/tree/main/mcp
+  pypi: https://pypi.org/project/glassbox-framework/
+  npm: https://www.npmjs.com/package/@glassbox-framework/mcp
