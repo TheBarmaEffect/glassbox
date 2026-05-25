@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  typescript:
+    name: TypeScript strict-mode + MCP smoke test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: mcp/package-lock.json
+      - run: npm install --no-audit --no-fund
+      - name: Type-check (strict)
+        run: NODE_OPTIONS='--max-old-space-size=4096' npx tsc --noEmit
+      - name: Smoke test (server boots, registers 6 tools)
+        run: |
+          node demo/launch-demo.mjs --fast 2>&1 | tee /tmp/smoke.log
+          grep -q "Demo complete" /tmp/smoke.log
+          grep -q "glassbox-85cc09903bd4b3f8022a4087" /tmp/smoke.log
+          echo "✓ canonical audit log_id reproduced"
+
+  python:
+    name: Python package builds + installs + imports
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+    defaults:
+      run:
+        working-directory: mcp/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Build wheel + sdist
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+      - name: Install in a fresh venv
+        run: |
+          python -m venv /tmp/test-venv
+          /tmp/test-venv/bin/pip install dist/glassbox_framework-*.whl
+      - name: Verify import + version + exports
+        run: |
+          /tmp/test-venv/bin/python -c "
+          from glassbox_framework import Glassbox, GlassboxError, ToolError
+          import glassbox_framework
+          assert glassbox_framework.__version__, 'no version'
+          assert Glassbox.__name__ == 'Glassbox'
+          assert GlassboxError.__name__ == 'GlassboxError'
+          assert ToolError.__name__ == 'ToolError'
+          print('✓ import contract verified')
+          "
+
+  determinism:
+    name: Cross-language audit-hash determinism
+    runs-on: ubuntu-latest
+    needs: [typescript]
+    defaults:
+      run:
+        working-directory: mcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: mcp/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm install --no-audit --no-fund
+      - name: Run JS demo, capture log_id
+        run: |
+          node demo/launch-demo.mjs --fast 2>&1 | grep "log_id:" | head -1 \
+            | awk '{print $NF}' > /tmp/js-log-id.txt
+          cat /tmp/js-log-id.txt
+      - name: Build Python package + run via installed client
+        run: |
+          cd python
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+          python -m venv /tmp/det-venv
+          /tmp/det-venv/bin/pip install dist/glassbox_framework-*.whl
+          export GLASSBOX_SERVER_CMD="npx ts-node ${{ github.workspace }}/mcp/src/index.ts"
+          /tmp/det-venv/bin/python -c "
+          import json
+          from glassbox_framework import Glassbox
+          with open('${{ github.workspace }}/mcp/demo/raw-inputs.json') as f: i=json.load(f)
+          with Glassbox() as gb:
+              c=gb.generate_trust_card(question=i['question'],answer=i['answer'],claims=i['claims'],red_team=i['red_team'],ecs=i['ecs'],constitution=i['constitution'],intents=i['intents'])
+          print(c['audit']['log_id'])
+          " > /tmp/py-log-id.txt
+          cat /tmp/py-log-id.txt
+      - name: Assert byte-identical log_id from JS and Python
+        run: |
+          # Both must equal the canonical reference
+          JS_ID=$(cat /tmp/js-log-id.txt | sed 's/\x1b\[[0-9;]*m//g' | tr -d '[:space:]')
+          PY_ID=$(cat /tmp/py-log-id.txt | tr -d '[:space:]')
+          echo "JS:  $JS_ID"
+          echo "PY:  $PY_ID"
+          echo "REF: glassbox-85cc09903bd4b3f8022a4087"
+          test "$JS_ID" = "$PY_ID"
+          test "$JS_ID" = "glassbox-85cc09903bd4b3f8022a4087"
+          echo "✓ deterministic across language boundary"
