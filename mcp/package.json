@@ -1,0 +1,70 @@
+{
+  "name": "@glassbox-framework/mcp",
+  "version": "1.0.1",
+  "mcpName": "io.github.thebarmaeffect/glassbox-framework",
+  "description": "Glass Box Framework MCP server \u2014 runtime constitutional verification for AI answers, with claim-level reasoning chains, formal ECS scoring, 7-angle red team (Glassbox Court), and deterministic audit logs.",
+  "main": "src/index.ts",
+  "bin": {
+    "glassbox-mcp": "bin/glassbox-mcp.js"
+  },
+  "files": [
+    "src",
+    "bin",
+    "tsconfig.json",
+    "README.md",
+    "LICENSE",
+    ".env.example"
+  ],
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "inspect": "npx @modelcontextprotocol/inspector ts-node src/index.ts",
+    "prepublishOnly": "npm run typecheck"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "constitutional-ai",
+    "verification",
+    "ai-safety",
+    "trust-card",
+    "glass-box",
+    "claude",
+    "anthropic",
+    "epistemic-confidence",
+    "red-team"
+  ],
+  "author": {
+    "name": "Karthik Barma",
+    "email": "golla.sat@northeastern.edu",
+    "url": "https://github.com/TheBarmaEffect"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheBarmaEffect/glassbox.git",
+    "directory": "mcp"
+  },
+  "homepage": "https://github.com/TheBarmaEffect/glassbox#readme",
+  "bugs": {
+    "url": "https://github.com/TheBarmaEffect/glassbox/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0"
+  }
+}

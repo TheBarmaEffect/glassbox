@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use Glassbox in research or production, please cite it."
+title: "Glassbox: Local Reasoning Observability for AI Systems"
+version: "0.3.0"
+date-released: "2026-04-25"
+license: "Apache-2.0"
+repository-code: "https://github.com/TheBarmaEffect/glassbox"
+url: "https://github.com/TheBarmaEffect/glassbox"
+authors:
+  - family-names: "Barma"
+    given-names: "Karthik"
+    affiliation: "Northeastern University, Khoury College of Computer Sciences"
+keywords:
+  - "ai"
+  - "llm"
+  - "reasoning"
+  - "observability"
+  - "auditable"
+  - "falsifiable"
+  - "hallucination"
+  - "structural-reliability"
+abstract: >-
+  Glassbox is a local reasoning observability engine. Given a (prompt, response)
+  pair from any LLM, it produces a structured, deterministic trace of the
+  response: its claims, assumptions, contradictions, reasoning DAG, structural
+  reliability scores per claim, and a battery of failure-mode signals. The
+  verification core makes zero external API calls and is reproducible to four
+  decimal places. Glassbox is the engineering substrate of the Glass Box
+  Framework — a research program on visible, auditable, falsifiable AI
+  reasoning.
+preferred-citation:
+  type: software
+  title: "Glassbox: Local Reasoning Observability for AI Systems"
+  authors:
+    - family-names: "Barma"
+      given-names: "Karthik"
+  year: 2026
+  version: "0.3.0"
