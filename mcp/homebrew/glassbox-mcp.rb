@@ -1,14 +1,14 @@
 class GlassboxMcp < Formula
   desc "Glass Box Framework MCP server — runtime constitutional verification for AI answers"
   homepage "https://github.com/TheBarmaEffect/glassbox"
-  url "https://registry.npmjs.org/@glassbox-framework/mcp/-/mcp-1.0.1.tgz"
-  sha256 "346a5fdf7359bd99200d98fcc33b16bbfd66a43c1cfdd4ea8682c69be830fe2c"
+  url "https://registry.npmjs.org/@glassbox-framework/mcp/-/mcp-1.0.3.tgz"
+  sha256 "4b4c2097b1c2d99b1d5364ef261bbcb8a2f2d231a2a14698db7ac46eca789c96"
   license "Apache-2.0"
 
   depends_on "node"
 
   def install
-    system "npm", "install", *Language::Node.std_npm_install_args(libexec)
+    system "npm", "install", *std_npm_args
     bin.install_symlink Dir["#{libexec}/bin/*"]
   end
 

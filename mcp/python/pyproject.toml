@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "glassbox-framework"
-version = "1.0.1"
+version = "1.0.2"
 description = "Glass Box Framework — runtime constitutional verification for AI answers. Every claim carries a reasoning chain. Every score breaks down. Every verdict is traceable."
 readme = "README.md"
 requires-python = ">=3.10"

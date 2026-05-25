@@ -38,4 +38,4 @@ Author: Karthik Barma · MS AI · Northeastern University | Powered by Aura.
 from .client import Glassbox, GlassboxError, ToolError
 
 __all__ = ["Glassbox", "GlassboxError", "ToolError"]
-__version__ = "1.0.1"
+__version__ = "1.0.2"
