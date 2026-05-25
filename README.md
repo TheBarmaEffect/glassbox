@@ -159,7 +159,7 @@ Process:
 3. CI must pass ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) — TS strict mode, Python wheel build, **cross-language determinism on the canonical audit hash**
 4. Open the PR; we aim for review within 48 hours
 
-Code of conduct: [Contributor Covenant 2.1](CODE_OF_CONDUCT.md). Be kind, stay on substance, no harassment, contact `golla.sat@northeastern.edu` for anything off-public-channel.
+Code of conduct: [Contributor Covenant 2.1](CODE_OF_CONDUCT.md). Be kind, stay on substance, no harassment, contact `thebarmaeffect@gmail.com` for anything off-public-channel.
 
 ## Star ⭐ this repo
 

@@ -11,7 +11,7 @@ In short:
 
 ### Reporting
 
-Contact **Karthik Barma** at `golla.sat@northeastern.edu` for anything you'd rather not put in a public issue. Reports are confidential.
+Contact **Karthik Barma** at `thebarmaeffect@gmail.com` for anything you'd rather not put in a public issue. Reports are confidential.
 
 ### Maintainer commitments
 

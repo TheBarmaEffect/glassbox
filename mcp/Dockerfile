@@ -60,7 +60,7 @@ ENTRYPOINT ["node", "dist/index.js"]
 # Labels for the GitHub Container Registry UI.
 LABEL org.opencontainers.image.title="Glass Box Framework MCP server"
 LABEL org.opencontainers.image.description="Runtime constitutional verification for AI answers — 6 tools, ECS scoring, 7-angle red team, deterministic audit logs."
-LABEL org.opencontainers.image.authors="Karthik Barma <golla.sat@northeastern.edu>"
+LABEL org.opencontainers.image.authors="Karthik Barma <thebarmaeffect@gmail.com>"
 LABEL org.opencontainers.image.source="https://github.com/TheBarmaEffect/glassbox"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.version="1.0.0"

@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 authors = [
-    { name = "Karthik Barma", email = "golla.sat@northeastern.edu" }
+    { name = "Karthik Barma", email = "thebarmaeffect@gmail.com" }
 ]
 keywords = ["mcp", "model-context-protocol", "ai-safety", "constitutional-ai", "verification", "glass-box", "trust-card"]
 classifiers = [
