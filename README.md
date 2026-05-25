@@ -2,15 +2,26 @@
 
 > **Runtime constitutional verification for AI answers.** Every claim carries a reasoning chain. Every score breaks down. Every verdict is traceable.
 
+[![CI](https://github.com/TheBarmaEffect/glassbox/actions/workflows/ci.yml/badge.svg)](https://github.com/TheBarmaEffect/glassbox/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/glassbox-framework?label=PyPI&color=blue)](https://pypi.org/project/glassbox-framework/)
+[![npm version](https://img.shields.io/npm/v/%40glassbox-framework%2Fmcp?label=npm&color=red)](https://www.npmjs.com/package/@glassbox-framework/mcp)
+[![Homebrew](https://img.shields.io/badge/homebrew-thebarmaeffect%2Fglassbox-orange)](https://github.com/TheBarmaEffect/homebrew-glassbox)
+[![MCP Registry](https://img.shields.io/badge/MCP%20Registry-active-00d9d9)](https://registry.modelcontextprotocol.io/v0/servers?search=glassbox-framework)
+[![PyPI downloads](https://img.shields.io/pypi/dm/glassbox-framework?label=downloads%2Fmo)](https://pypi.org/project/glassbox-framework/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/TheBarmaEffect/glassbox?style=social)](https://github.com/TheBarmaEffect/glassbox/stargazers)
+
+> ⭐️ **Star this repo if you want runtime AI verification to become the default.** Every star moves Glassbox up the search ranking on GitHub, the MCP Registry, and Smithery — which means more developers find this before they ship an AI feature without a Trust Card.
+
+<p align="center">
+  <img src="mcp/assets/glassbox-walkthrough.gif" alt="Glassbox in 70 seconds — walkthrough of all 6 tools" width="100%">
+</p>
+
 ```bash
 pip install glassbox-framework         # Python
 npm install -g @glassbox-framework/mcp # Node / MCP
 brew install thebarmaeffect/glassbox/glassbox-mcp   # macOS
 ```
-
-[![PyPI](https://img.shields.io/pypi/v/glassbox-framework?label=PyPI)](https://pypi.org/project/glassbox-framework/)
-[![npm](https://img.shields.io/npm/v/%40glassbox-framework%2Fmcp?label=npm)](https://www.npmjs.com/package/@glassbox-framework/mcp)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 ## What it is
 
@@ -132,6 +143,32 @@ ROADMAP.md                 — Phase 5 (governor) plans for the broader framewor
 CONTRIBUTING.md
 CHANGELOG.md
 ```
+
+## Contributing
+
+Glassbox is open source under Apache 2.0 and **actively wants forks and PRs.** A few specific places we'd love help:
+
+- **More red-team probes** — `mcp/src/engines/redteam.ts` has `// v2:` placeholders for `alignment_faking`, `reasoning_trace_deception`, `eval_awareness_gaming`, `agentic_misalignment`, and `sustained_jailbreak`. Each is a tractable PR — same shape as the existing 7 probes, just a different angle. See [`.github/ISSUE_TEMPLATE/good_first_issue.md`](.github/ISSUE_TEMPLATE/good_first_issue.md).
+- **More language clients** — currently Python (`glassbox-framework`) and Node (`@glassbox-framework/mcp`). Go, Rust, Ruby, Swift, Kotlin would all be welcome as thin JSON-RPC clients that spawn the existing MCP server.
+- **More integrations** — Cursor / Cline / Continue / Roo Cline / Zed / Neovim — wherever MCP is read, Glassbox should be one paste away.
+- **Real-world Trust Card examples** — submit (Q, A) pairs from your own AI workflows so the test suite covers more terrain.
+
+Process:
+1. Pick a `good first issue` or open one with your idea
+2. Fork, branch, work — the [PR template](.github/PULL_REQUEST_TEMPLATE.md) walks you through verification
+3. CI must pass ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) — TS strict mode, Python wheel build, **cross-language determinism on the canonical audit hash**
+4. Open the PR; we aim for review within 48 hours
+
+Code of conduct: [Contributor Covenant 2.1](CODE_OF_CONDUCT.md). Be kind, stay on substance, no harassment, contact `golla.sat@northeastern.edu` for anything off-public-channel.
+
+## Star ⭐ this repo
+
+The fastest way to help right now is to star the repo. Every star:
+- Surfaces Glassbox higher in GitHub's MCP topic listings
+- Pushes the project up on the MCP Registry and Smithery rankings
+- Tells the next developer evaluating AI-safety tooling that this is the one with eyes on it
+
+[**⭐ Star Glassbox**](https://github.com/TheBarmaEffect/glassbox/stargazers)
 
 ## Author
 
