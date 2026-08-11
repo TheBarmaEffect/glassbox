@@ -80,6 +80,22 @@ test("OpenAI plugin review challenge returns only the configured token", async (
   assert.equal(await response.text(), "openai-challenge-token");
 });
 
+test("public web app and install manifest expose the zero-secret MCP client", async () => {
+  const appResponse = await fetch(`${base}/app`);
+  assert.equal(appResponse.status, 200);
+  assert.match(appResponse.headers.get("content-type") ?? "", /^text\/html/);
+  const html = await appResponse.text();
+  assert.match(html, /glassbox_verify_answer/);
+  assert.match(html, /fetch\("\/mcp"/);
+  assert.doesNotMatch(html, /PLATFORM_SHARED_SECRET|ANTHROPIC_API_KEY|OPENAI_API_KEY/);
+
+  const manifestResponse = await fetch(`${base}/manifest.webmanifest`);
+  assert.equal(manifestResponse.status, 200);
+  const manifest = await manifestResponse.json() as { name: string; start_url: string };
+  assert.equal(manifest.name, "GlassBox Lite");
+  assert.equal(manifest.start_url, "/app");
+});
+
 test("pilot readiness rejects public or concurrent deployment settings", () => {
   const baseSettings = {
     backend: "lite" as const,

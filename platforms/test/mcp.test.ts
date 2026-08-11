@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createGlassboxMcpServer, GLASSBOX_MCP_TOOL, publicMcpResult } from "../src/mcp.js";
+import { createGlassboxMcpServer, GLASSBOX_MCP_TOOL, mcpRateKey, publicMcpResult } from "../src/mcp.js";
 import {
   MAX_ANSWER_CHARS,
   MAX_INTENTS,
@@ -27,6 +27,16 @@ const card: TrustCard = {
     inputs_hash: "test-hash",
   },
 };
+
+test("MCP rate keys separate callers without retaining their network address", () => {
+  const first = mcpRateKey("203.0.113.10");
+  const again = mcpRateKey("203.0.113.10");
+  const second = mcpRateKey("203.0.113.11");
+  assert.equal(first, again);
+  assert.notEqual(first, second);
+  assert.doesNotMatch(first, /203\.0\.113/);
+  assert.match(first, /^mcp:[a-f0-9]{32}$/);
+});
 
 async function connectedClient(resultCard: TrustCard = card): Promise<{
   client: Client;

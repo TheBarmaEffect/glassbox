@@ -44,6 +44,91 @@ jobs:
       - run: npm run check
       - run: npm run audit:runtime
 
+  browser-extension:
+    name: Browser extension packages
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: browser-extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: browser-extension/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - run: npm audit --omit=dev --audit-level=high
+      - run: unzip -t dist/glassbox-lite-chromium-0.1.0.zip
+      - run: unzip -t dist/glassbox-lite-firefox-0.1.0.xpi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: glassbox-browser-extensions
+          path: |
+            browser-extension/dist/glassbox-lite-chromium-0.1.0.zip
+            browser-extension/dist/glassbox-lite-firefox-0.1.0.xpi
+            browser-extension/dist/SHA256SUMS
+
+  notion-integration:
+    name: Notion connection
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: notion-integration
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: notion-integration/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - run: npm audit --omit=dev --audit-level=high
+
+  vscode-extension:
+    name: VS Code extension
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: platforms/ide/vscode-glassbox
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: platforms/ide/vscode-glassbox/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run package
+      - run: npm audit --omit=dev --audit-level=high
+      - run: unzip -t dist/glassbox-lite-0.1.0.vsix
+      - uses: actions/upload-artifact@v4
+        with:
+          name: glassbox-vscode-extension
+          path: platforms/ide/vscode-glassbox/dist/glassbox-lite-0.1.0.vsix
+
+  jetbrains-plugin:
+    name: JetBrains plugin
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: platforms/ide/jetbrains-glassbox
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew --no-daemon test verifyPluginStructure buildPlugin verifyPlugin
+      - run: unzip -t build/distributions/glassbox-lite-0.1.0.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: glassbox-jetbrains-plugin
+          path: platforms/ide/jetbrains-glassbox/build/distributions/glassbox-lite-0.1.0.zip
+
   typescript:
     name: TypeScript strict-mode + MCP smoke test
     runs-on: ubuntu-latest
