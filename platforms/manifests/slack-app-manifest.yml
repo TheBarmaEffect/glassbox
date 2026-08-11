@@ -16,6 +16,7 @@ features:
     - name: Analyze with GlassBox
       type: message
       callback_id: glassbox_verify_message
+      description: Audit the selected message with GlassBox
 oauth_config:
   scopes:
     bot:
