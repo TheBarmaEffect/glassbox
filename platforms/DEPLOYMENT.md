@@ -13,7 +13,7 @@ PLATFORM_SHARED_SECRET
 PUBLIC_BASE_URL=https://your-domain.example
 ```
 
-For the first deployment, keep `PLATFORM_ALLOW_PUBLIC=false`. Set `PLATFORM_PUBLIC_PLATFORMS=discord,telegram,mcp` only after those public entry points are registered, and keep exact tenant keys such as `api,slack:t123,github:owner/repo,reddit:testsub` in `PILOT_TENANT_ALLOWLIST`. Unlisted platforms fail closed. The legacy global public switch remains disabled.
+For the first deployment, keep `PLATFORM_ALLOW_PUBLIC=false`. Set `PLATFORM_PUBLIC_PLATFORMS=discord,telegram,github,mcp` only after those public entry points are registered, and keep exact tenant keys such as `api,slack:t123,github:owner/repo,reddit:testsub` in `PILOT_TENANT_ALLOWLIST`. Unlisted platforms fail closed. The legacy global public switch remains disabled.
 
 Start on one free instance with concurrency `1`, a per-user limit of `10` audits per 10 minutes, and a global ceiling of `100` accepted audits/day. A free host may sleep while idle, so the first request can be slower. Keep `PLATFORM_ALLOW_PUBLIC=false` and list exact pilot tenant keys in `PILOT_TENANT_ALLOWLIST`. Raise access or concurrency only after observing CPU, memory, latency, and abuse patterns.
 

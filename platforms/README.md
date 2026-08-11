@@ -66,7 +66,7 @@ Discord / Slack / Telegram / GitHub / Reddit / ChatGPT / Claude / API
 
 No platform user ID, server/workspace name, subreddit, repository name, or URL is passed to the verifier. With Lite, the explicitly submitted question, answer, and optional intents remain inside this process. With the optional Anthropic backend, only those submitted text fields cross the MCP boundary.
 
-The default is a closed pilot. `PILOT_TENANT_ALLOWLIST` accepts exact lowercase keys: `api`, `mcp:public`, `discord:<guild-id>` (or `discord:user:<user-id>`), `slack:<team-id>`, `telegram:<chat-id>`, `github:<owner/repo>`, and `reddit:<subreddit>`. `PLATFORM_PUBLIC_PLATFORMS` can open only named adapters (for example `discord,telegram,mcp`) while Slack, GitHub, Reddit, and the bearer-protected API retain their own gates. The legacy `PLATFORM_ALLOW_PUBLIC=true` bypasses every tenant gate and remains unsuitable for this deployment.
+The default is a closed pilot. `PILOT_TENANT_ALLOWLIST` accepts exact lowercase keys: `api`, `mcp:public`, `discord:<guild-id>` (or `discord:user:<user-id>`), `slack:<team-id>`, `telegram:<chat-id>`, `github:<owner/repo>`, and `reddit:<subreddit>`. `PLATFORM_PUBLIC_PLATFORMS` can open only named adapters (for example `discord,telegram,github,mcp`) while Slack, Reddit, and the bearer-protected API retain their own gates. The legacy `PLATFORM_ALLOW_PUBLIC=true` bypasses every tenant gate and remains unsuitable for this deployment.
 
 ## ChatGPT and Claude MCP
 
