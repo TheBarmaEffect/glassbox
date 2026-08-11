@@ -7,7 +7,7 @@
 - **Short description:** Audit AI answers for contradictions, arithmetic errors, unsupported certainty, citation transparency, and prompt-injection risk.
 - **Website:** https://glassbox-platform-gateway.onrender.com/
 - **Documentation:** https://github.com/TheBarmaEffect/glassbox/tree/main/platforms
-- **Support:** mailto:thebarmaeffect@gmail.com
+- **Support:** https://glassbox-platform-gateway.onrender.com/support
 - **Privacy:** https://glassbox-platform-gateway.onrender.com/privacy
 - **Terms:** https://glassbox-platform-gateway.onrender.com/terms
 - **MCP URL:** https://glassbox-platform-gateway.onrender.com/mcp

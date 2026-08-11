@@ -10,7 +10,9 @@ GlassBox Audit is a user-invoked reasoning aid for Reddit posts and comments. It
 
 The Devvit server sends one `POST /api/v1/verify` request only after a redditor opens the menu action and explicitly consents. The request contains the selected post title, up to 12,000 characters from the selected post/comment, a fixed reasoning-audit instruction, and an opaque idempotency ID. A bearer credential is read from Devvit's encrypted developer-only global secret store and sent only in the server-side Authorization header. No client/browser code can access the secret. The response is a deterministic Trust Card; the app displays a sanitized summary in a transient form and stores nothing.
 
-The hostname also serves the public privacy notice and terms. The gateway does not browse or call a model provider when `GLASSBOX_BACKEND=lite` (the deployed default).
+The hostname also serves the public privacy notice and terms. The audit endpoint is a public HTTPS server-to-server API, not an AI/LLM provider, account-linking service, database, asset host, or external app experience. The deployed `GLASSBOX_BACKEND=lite` implementation does not browse, make a downstream network request, or call a model provider. It needs no paid API. A shared, versioned API keeps GlassBox's deterministic analysis and Trust Card contract consistent across Reddit and the other supported platforms; the Reddit-only Devvit server cannot provide that cross-platform execution surface by itself.
+
+The README contains Reddit's required `## Fetch Domains` section with this exact hostname and justification.
 
 ## Permissions justification
 
@@ -36,3 +38,14 @@ No classic Data API, Reddit OAuth client, user-action permission, posting/commen
 - Terms: <https://glassbox-platform-gateway.onrender.com/terms>
 - Gateway readiness: <https://glassbox-platform-gateway.onrender.com/ready>
 - Support: <mailto:thebarmaeffect@gmail.com>
+
+## Developer Portal checklist
+
+Before the authorized owner runs `devvit publish --public`, confirm that App Details contains:
+
+- a plain-language description and appropriate categories;
+- <https://glassbox-platform-gateway.onrender.com/privacy> as the Privacy Policy;
+- <https://glassbox-platform-gateway.onrender.com/terms> as the Terms and Conditions; and
+- the 1024x1024 app icon declared by `marketingAssets.icon`.
+
+The exact Fetch domain must show **Approved** in Developer Settings. A pending domain request is not a code failure and is reviewed separately by Reddit.

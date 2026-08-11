@@ -27,6 +27,14 @@ Privacy: <https://glassbox-platform-gateway.onrender.com/privacy>
 Terms: <https://glassbox-platform-gateway.onrender.com/terms>  
 Support and data-rights contact: <thebarmaeffect@gmail.com>
 
+## Fetch Domains
+
+The app requests one exact hostname:
+
+- `glassbox-platform-gateway.onrender.com` — after a redditor explicitly confirms one audit, the Devvit server sends a single authenticated `POST /api/v1/verify` request to the shared GlassBox reasoning API and receives a deterministic Trust Card. The shared API keeps the same versioned GlassBox Lite analysis and response contract across Reddit and the other supported platforms, which the Reddit-only Devvit server cannot provide by itself.
+
+The audit endpoint is a public HTTPS server-to-server API, not an AI/LLM provider, account-linking service, database, asset host, or external app experience. The deployed Lite backend makes no downstream network or model-provider call and requires no paid API. Devvit sends only the user-confirmed content described above; neither the app nor gateway persists it. The same hostname also serves the required public privacy and terms pages.
+
 ## Local checks
 
 Use the Node version in `.nvmrc`, then:
@@ -71,7 +79,7 @@ The app requests only:
 - Server-side HTTP Fetch to the exact hostname `glassbox-platform-gateway.onrender.com`.
 - One developer-managed global secret named `glassboxGatewaySecret`.
 
-The HTTP domain request is submitted during playtest/upload. Fetch-enabled apps require Reddit approval, a privacy policy, and terms. Add the live privacy and terms URLs above in the Developer Portal App Details page before publishing. The app does not use classic Reddit OAuth/Data API credentials, user-action permissions, app-data Redis calls, triggers, scheduler, payments, media, realtime, external endpoints, or LLM capabilities. Devvit automatically enables its Redis-backed form-submit grant mechanism for menu forms; no application content is written to it by this package.
+The HTTP domain request is submitted during playtest/upload. Fetch-enabled apps require Reddit approval, a privacy policy, and terms. Add the live privacy and terms URLs above in the Developer Portal App Details page before publishing. The app does not use classic Reddit OAuth/Data API credentials, user-action permissions, app-data Redis calls, triggers, scheduler, payments, media, realtime, external endpoints, or Devvit LLM capabilities. Devvit automatically enables its Redis-backed form-submit grant mechanism for menu forms; no application content is written to it by this package.
 
 The Render free service may sleep. Devvit HTTP requests have a 30-second platform timeout; this app aborts the gateway call at 25 seconds and asks the user to retry once if the service is waking.
 

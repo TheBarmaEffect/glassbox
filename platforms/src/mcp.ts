@@ -4,6 +4,13 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import { parseJson, publicError, rawBody, sendJson } from "./http.js";
+import {
+  MAX_ANSWER_CHARS,
+  MAX_INTENTS,
+  MAX_INTENT_CHARS,
+  MAX_QUESTION_CHARS,
+  MAX_TOTAL_INTENT_CHARS,
+} from "./parser.js";
 import { VerificationService } from "./service.js";
 
 export const GLASSBOX_MCP_TOOL = "glassbox_verify_answer";
@@ -24,10 +31,66 @@ export function createGlassboxMcpServer(service: VerificationService): McpServer
         "unsupported certainty, citation transparency, prompt-injection signals, ECS dimensions, " +
         "and an audit reference. This is a reasoning audit, not a web fact-check or professional advice.",
       inputSchema: {
-        question: z.string().min(1).max(8_000).describe("The original question or prompt."),
-        answer: z.string().min(1).max(16_000).describe("The answer to audit."),
-        intents: z.array(z.string().min(1).max(1_000)).max(20).optional()
-          .describe("Optional rules or expectations the answer should satisfy."),
+        question: z.string().trim().min(1).max(MAX_QUESTION_CHARS)
+          .describe(`The original question or prompt (maximum ${MAX_QUESTION_CHARS} characters).`),
+        answer: z.string().trim().min(1).max(MAX_ANSWER_CHARS)
+          .describe(`The answer to audit (maximum ${MAX_ANSWER_CHARS} characters).`),
+        intents: z.array(z.string().trim().min(1).max(MAX_INTENT_CHARS))
+          .max(MAX_INTENTS)
+          .refine(
+            (values) => values.reduce((total, value) => total + value.length, 0)
+              <= MAX_TOTAL_INTENT_CHARS,
+            `Intents must total no more than ${MAX_TOTAL_INTENT_CHARS} characters.`,
+          )
+          .optional()
+          .describe(
+            `Optional rules or expectations the answer should satisfy (maximum ${MAX_INTENTS}; ` +
+            `${MAX_TOTAL_INTENT_CHARS} characters total).`,
+          ),
+      },
+      outputSchema: {
+        question: z.string(),
+        answer: z.string(),
+        verdict: z.enum(["trust", "caution", "reject"]),
+        verdict_rationale: z.string(),
+        ecs: z.object({
+          total: z.number().min(0).max(1),
+          dimensions: z.record(z.number().min(0).max(1)),
+          notes: z.array(z.string()),
+        }),
+        claims: z.array(z.object({
+          id: z.string(),
+          text: z.string(),
+          reasoning: z.string(),
+          confidence: z.number().min(0).max(1),
+          supporting_evidence: z.array(z.string()),
+          attack_surface: z.array(z.string()),
+          status: z.enum(["observed", "reconstructed", "assumed"]),
+        })),
+        red_team: z.object({
+          probes: z.array(z.object({
+            angle: z.string(),
+            passed: z.boolean(),
+            severity: z.enum(["low", "medium", "high", "critical"]),
+            finding: z.string(),
+            evidence: z.array(z.string()),
+          })),
+          pass_rate: z.number().min(0).max(1),
+          highest_severity: z.enum(["low", "medium", "high", "critical"]),
+        }),
+        constitution: z.object({
+          rules: z.array(z.object({
+            id: z.string(),
+            requirement: z.string(),
+            severity: z.string(),
+          })),
+          evaluations: z.record(z.enum(["satisfied", "violated", "not_triggered"])).optional(),
+        }),
+        audit: z.object({
+          log_id: z.string(),
+          generated_at: z.string(),
+          inputs_hash: z.string(),
+        }),
       },
       annotations: {
         readOnlyHint: true,
@@ -50,6 +113,7 @@ export function createGlassboxMcpServer(service: VerificationService): McpServer
         service.markDelivered(eventKey);
         return {
           content: [{ type: "text" as const, text: JSON.stringify(card, null, 2) }],
+          structuredContent: { ...card },
         };
       } catch (error) {
         service.markDeliveryFailed(eventKey);

@@ -2,19 +2,37 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>GlassBox Platform Gateway</title>
+<title>GlassBox — Verify AI answers</title>
 <meta name="description" content="Transparent, deterministic reasoning audits for AI answers.">
 <meta property="og:title" content="GlassBox">
 <meta property="og:description" content="Verify. Explain. Trust.">
 <meta property="og:image" content="/assets/glassbox-banner-master.png">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" href="/assets/favicon.png">
-</head>
-<body style="max-width:760px;margin:56px auto;padding:0 20px;font:16px/1.6 system-ui;color:#111827">
-<img src="/assets/glassbox-banner-discord.png" width="680" height="240" alt="GlassBox — Verify, Explain, Trust" style="display:block;max-width:100%;height:auto;border-radius:18px">
-<h1>GlassBox Platform Gateway</h1>
-<p><strong>User-invoked reasoning audits for AI answers.</strong> GlassBox turns an explicitly selected question/answer pair into a compact Trust Card with claim reasoning, ECS dimensions, adversarial probes, constitutional checks, and a deterministic audit reference.</p>
-<p>Available as private-by-default interactions for Discord, Slack, Telegram, GitHub, Reddit pilots, and approved server-side integrations.</p>
-<p>GlassBox is an automated reasoning review, not a fact-check, moderation decision, or professional advice.</p>
-<p><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="https://github.com/TheBarmaEffect/glassbox">Source</a> · <a href="mailto:thebarmaeffect@gmail.com">Support</a></p>
-</body></html>
+<style>
+:root{color-scheme:dark;--bg:#050814;--panel:#0b1124;--line:#1d2c52;--text:#eef5ff;--muted:#a9b9d5;--blue:#49b8ff;--violet:#8c7cff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -10%,#14264e 0,#050814 48%);color:var(--text);font:16px/1.6 Inter,ui-sans-serif,system-ui,sans-serif}main{max-width:1080px;margin:auto;padding:36px 22px 80px}a{color:var(--blue)}
+.hero{padding:38px 0 34px}.banner{display:block;width:100%;max-width:680px;height:auto;border:1px solid #21335e;border-radius:22px;box-shadow:0 28px 90px rgba(0,107,255,.18)}h1{font-size:clamp(42px,8vw,76px);line-height:.98;letter-spacing:-.06em;margin:46px 0 18px;max-width:820px}.lead{font-size:clamp(18px,3vw,22px);max-width:760px;color:var(--muted)}
+.actions{display:flex;flex-wrap:wrap;gap:12px;margin:28px 0}.button{padding:11px 17px;border-radius:11px;text-decoration:none;font-weight:750;background:linear-gradient(135deg,#278dff,#735cff);color:white}.button.secondary{background:#0c1630;border:1px solid var(--line);color:var(--text)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:15px}.card{padding:22px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,rgba(16,27,56,.95),rgba(7,12,27,.96))}.card h2{font-size:20px;margin:8px 0}.card p{color:var(--muted);margin:7px 0 0}.status{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#72d6ff}.review{color:#b5a9ff}code{display:inline-block;max-width:100%;overflow-wrap:anywhere;padding:3px 7px;border:1px solid var(--line);border-radius:7px;background:#050a18;color:#c8edff}.note{margin:30px 0;padding:18px 20px;border-left:3px solid var(--violet);background:#090f21;color:var(--muted)}footer{margin-top:40px;color:var(--muted)}
+</style></head>
+<body><main>
+<section class="hero">
+<img class="banner" src="/assets/glassbox-banner-discord.png" width="680" height="240" alt="GlassBox — Verify, Explain, Trust">
+<h1>A second look before you trust an AI answer.</h1>
+<p class="lead">GlassBox turns an explicitly selected question and answer into a compact Trust Card: contradictions, arithmetic, unsupported certainty, citation transparency, prompt-injection signals, and a deterministic audit reference.</p>
+<div class="actions"><a class="button" href="https://discord.com/oauth2/authorize?client_id=1536588680813350972">Install on Discord</a><a class="button secondary" href="https://t.me/GlassBoxAuditBot">Open Telegram bot</a><a class="button secondary" href="/support">All setup instructions</a></div>
+</section>
+
+<section class="grid" aria-label="GlassBox platform availability">
+<article class="card"><span class="status">Live</span><h2>Discord</h2><p>Install publicly and run <code>/glassbox</code> or the message action.</p></article>
+<article class="card"><span class="status">Live</span><h2>Telegram</h2><p>Message <a href="https://t.me/GlassBoxAuditBot">@GlassBoxAuditBot</a> for a private audit.</p></article>
+<article class="card"><span class="status">Live</span><h2>MCP</h2><p>Public auth-free endpoint for ChatGPT, Claude, and compatible clients: <code>https://glassbox-platform-gateway.onrender.com/mcp</code></p></article>
+<article class="card"><span class="status">Workspace live</span><h2>Slack</h2><p>Running in the initial workspace; public Marketplace distribution is being prepared.</p></article>
+<article class="card"><span class="status review">Custom connector live</span><h2>ChatGPT + Claude</h2><p>The MCP works as a custom connector now. Their universal directory listings require external platform review.</p></article>
+<article class="card"><span class="status review">In review</span><h2>Reddit + GitHub</h2><p>Reddit awaits Devvit Fetch approval. Public GitHub App distribution is being prepared.</p></article>
+</section>
+
+<p class="note">GlassBox Lite is free to run, uses no paid model API, performs no web fact-checking, and does not persist the raw question or answer. It is a reasoning audit—not professional advice or a guarantee that a claim is true.</p>
+<footer><a href="/support">Support</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="https://github.com/TheBarmaEffect/glassbox">Source</a></footer>
+</main></body></html>

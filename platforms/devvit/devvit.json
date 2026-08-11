@@ -41,6 +41,9 @@
     },
     "reddit": true
   },
+  "marketingAssets": {
+    "icon": "assets/icon.png"
+  },
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch"
