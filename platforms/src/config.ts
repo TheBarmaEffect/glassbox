@@ -25,6 +25,7 @@ export const config = {
       .filter(Boolean),
   ),
   publicBaseUrl: process.env.PUBLIC_BASE_URL?.replace(/\/$/, ""),
+  openaiAppsChallengeToken: process.env.OPENAI_APPS_CHALLENGE_TOKEN,
   sharedSecret: process.env.PLATFORM_SHARED_SECRET,
   discord: {
     applicationId: process.env.DISCORD_APPLICATION_ID,

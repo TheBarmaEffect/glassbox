@@ -7,6 +7,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { TrustCard, Verifier } from "../src/types.js";
 
 process.env.PLATFORM_SHARED_SECRET = "api-test-secret";
+process.env.OPENAI_APPS_CHALLENGE_TOKEN = "openai-challenge-token";
 process.env.PLATFORM_ALLOW_PUBLIC = "false";
 process.env.PILOT_TENANT_ALLOWLIST = "api,mcp:public";
 process.env.DISCORD_APPLICATION_ID = "123";
@@ -67,6 +68,13 @@ test("Lite readiness succeeds without a paid-model API key", async () => {
     verifier_backend: "lite",
     external_model_required: false,
   });
+});
+
+test("OpenAI plugin review challenge returns only the configured token", async () => {
+  const response = await fetch(`${base}/.well-known/openai-apps-challenge`);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /^text\/plain/);
+  assert.equal(await response.text(), "openai-challenge-token");
 });
 
 test("pilot readiness rejects public or concurrent deployment settings", () => {

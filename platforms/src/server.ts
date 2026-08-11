@@ -47,6 +47,14 @@ export function buildServer(service: VerificationService): Express {
     fallthrough: true,
   }));
 
+  app.get("/.well-known/openai-apps-challenge", (_request, response) => {
+    if (!config.openaiAppsChallengeToken) {
+      sendJson(response, 404, { error: "OpenAI plugin domain verification is not configured." });
+      return;
+    }
+    response.status(200).type("text/plain").send(config.openaiAppsChallengeToken);
+  });
+
   app.get("/health", (_request, response) => {
     sendJson(response, 200, {
       status: "ok",
