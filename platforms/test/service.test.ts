@@ -8,7 +8,7 @@ import {
   RateLimitError,
   VerificationService,
 } from "../src/service.js";
-import type { TrustCard, VerificationInput, Verifier } from "../src/types.js";
+import type { Platform, TrustCard, VerificationInput, Verifier } from "../src/types.js";
 
 function result(input: VerificationInput): TrustCard {
   return {
@@ -108,6 +108,48 @@ test("defaults to explicit pilot-tenant admission", async () => {
     rateKey: "user-1",
     tenantKey: "discord:unapproved",
   }), AdmissionError);
+});
+
+test("platform-specific public admission does not open unselected adapters", async () => {
+  const verifier: Verifier = { verify: async (input) => result(input) };
+  const publicPlatforms = new Set<Platform>(["discord", "telegram", "mcp"]);
+  const service = new VerificationService(
+    verifier,
+    1,
+    10,
+    10,
+    100,
+    60_000,
+    10 * 60_000,
+    {
+      allowPublic: false,
+      publicPlatforms,
+      tenants: new Set(["slack:approved", "github:owner/repo"]),
+    },
+  );
+
+  for (const platform of publicPlatforms) {
+    await service.run(
+      { question: "q", answer: "a", platform },
+      { idempotencyKey: `public-${platform}`, rateKey: `user-${platform}`, tenantKey: `${platform}:unknown` },
+    );
+  }
+  await service.run(
+    { question: "q", answer: "a", platform: "slack" },
+    { idempotencyKey: "slack-approved", rateKey: "slack-user", tenantKey: "slack:approved" },
+  );
+  await service.run(
+    { question: "q", answer: "a", platform: "github" },
+    { idempotencyKey: "github-approved", rateKey: "github-user", tenantKey: "github:owner/repo" },
+  );
+  await assert.rejects(service.run(
+    { question: "q", answer: "a", platform: "slack" },
+    { idempotencyKey: "slack-public", rateKey: "slack-other", tenantKey: "slack:other" },
+  ), AdmissionError);
+  await assert.rejects(service.run(
+    { question: "q", answer: "a", platform: "github" },
+    { idempotencyKey: "github-public", rateKey: "github-other", tenantKey: "github:other/repo" },
+  ), AdmissionError);
 });
 
 test("stops accepting work at the global daily pilot ceiling", async () => {

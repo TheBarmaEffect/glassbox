@@ -1,10 +1,24 @@
 import "dotenv/config";
+import { PLATFORMS, type Platform } from "./types.js";
 import { selectGlassboxBackend } from "./verifier.js";
 
 const numberFromEnv = (name: string, fallback: number): number => {
   const parsed = Number.parseInt(process.env[name] ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
+
+export function parsePublicPlatforms(value: string | undefined): Set<Platform> {
+  const requested = (value ?? "")
+    .split(",")
+    .map((platform) => platform.trim().toLowerCase())
+    .filter(Boolean);
+  const valid = new Set<string>(PLATFORMS);
+  const invalid = [...new Set(requested.filter((platform) => !valid.has(platform)))];
+  if (invalid.length > 0) {
+    throw new Error(`PLATFORM_PUBLIC_PLATFORMS contains unsupported values: ${invalid.join(", ")}.`);
+  }
+  return new Set(requested as Platform[]);
+}
 
 export const config = {
   verifierBackend: selectGlassboxBackend(process.env),
@@ -18,6 +32,7 @@ export const config = {
   estimatedJobMs: numberFromEnv("PLATFORM_ESTIMATED_JOB_MS", 60_000),
   jobTimeoutMs: numberFromEnv("PLATFORM_JOB_TIMEOUT_MS", 10 * 60_000),
   allowPublic: process.env.PLATFORM_ALLOW_PUBLIC === "true",
+  publicPlatforms: parsePublicPlatforms(process.env.PLATFORM_PUBLIC_PLATFORMS),
   pilotTenants: new Set(
     (process.env.PILOT_TENANT_ALLOWLIST ?? "")
       .split(",")

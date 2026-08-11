@@ -14,6 +14,7 @@ interface PilotReadinessSettings {
   backend?: "lite" | "anthropic";
   anthropicConfigured: boolean;
   allowPublic: boolean;
+  publicPlatformCount?: number;
   maxConcurrency: number;
   pilotTenantCount: number;
   platformCount: number;
@@ -26,7 +27,9 @@ export function pilotReadinessProblem(settings: PilotReadinessSettings): string 
   }
   if (settings.platformCount === 0) return "No platform adapter is configured.";
   if (settings.allowPublic) return "Public access is not approved for this pilot deployment.";
-  if (settings.pilotTenantCount === 0) return "PILOT_TENANT_ALLOWLIST is empty.";
+  if (settings.pilotTenantCount === 0 && (settings.publicPlatformCount ?? 0) === 0) {
+    return "PILOT_TENANT_ALLOWLIST is empty and no platform is explicitly public.";
+  }
   if (settings.maxConcurrency !== 1) return "The single-instance pilot requires PLATFORM_MAX_CONCURRENCY=1.";
   return undefined;
 }
@@ -59,7 +62,8 @@ export function buildServer(service: VerificationService): Express {
     sendJson(response, 200, {
       status: "ok",
       platforms: enabledPlatforms(),
-      access: config.allowPublic ? "public" : "pilot_allowlist",
+      access: config.allowPublic ? "public" : config.publicPlatforms.size > 0 ? "mixed" : "pilot_allowlist",
+      public_platforms: config.allowPublic ? "all" : [...config.publicPlatforms],
       queue: service.status(),
       raw_content_persistence: false,
       verifier_backend: config.verifierBackend,
@@ -71,6 +75,7 @@ export function buildServer(service: VerificationService): Express {
       backend: config.verifierBackend,
       anthropicConfigured: config.anthropicConfigured,
       allowPublic: config.allowPublic,
+      publicPlatformCount: config.publicPlatforms.size,
       maxConcurrency: config.maxConcurrency,
       pilotTenantCount: config.pilotTenants.size,
       platformCount: enabledPlatforms().length,

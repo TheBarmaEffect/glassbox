@@ -24,6 +24,8 @@ services:
         value: "100"
       - key: PLATFORM_ALLOW_PUBLIC
         value: "false"
+      - key: PLATFORM_PUBLIC_PLATFORMS
+        value: "discord,telegram,mcp"
       - key: PILOT_TENANT_ALLOWLIST
         sync: false
       - key: PLATFORM_SHARED_SECRET

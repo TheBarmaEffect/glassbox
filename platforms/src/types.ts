@@ -1,4 +1,5 @@
-export type Platform = "api" | "discord" | "slack" | "telegram" | "github" | "reddit" | "mcp";
+export const PLATFORMS = ["api", "discord", "slack", "telegram", "github", "reddit", "mcp"] as const;
+export type Platform = typeof PLATFORMS[number];
 
 export interface VerificationInput {
   question: string;

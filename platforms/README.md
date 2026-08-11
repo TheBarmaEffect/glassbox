@@ -64,7 +64,7 @@ Discord / Slack / Telegram / GitHub / Reddit / ChatGPT / Claude / API
 
 No platform user ID, server/workspace name, subreddit, repository name, or URL is passed to the verifier. With Lite, the explicitly submitted question, answer, and optional intents remain inside this process. With the optional Anthropic backend, only those submitted text fields cross the MCP boundary.
 
-The default is a closed pilot. `PILOT_TENANT_ALLOWLIST` accepts exact lowercase keys: `api`, `mcp:public`, `discord:<guild-id>` (or `discord:user:<user-id>`), `slack:<team-id>`, `telegram:<chat-id>`, `github:<owner/repo>`, and `reddit:<subreddit>`. `mcp:public` deliberately opens only the rate-limited, read-only `/mcp` tool while keeping provider adapters allowlisted. Setting `PLATFORM_ALLOW_PUBLIC=true` bypasses every tenant gate and should happen only after platform approval and multi-tenant abuse controls are ready.
+The default is a closed pilot. `PILOT_TENANT_ALLOWLIST` accepts exact lowercase keys: `api`, `mcp:public`, `discord:<guild-id>` (or `discord:user:<user-id>`), `slack:<team-id>`, `telegram:<chat-id>`, `github:<owner/repo>`, and `reddit:<subreddit>`. `PLATFORM_PUBLIC_PLATFORMS` can open only named adapters (for example `discord,telegram,mcp`) while Slack, GitHub, Reddit, and the bearer-protected API retain their own gates. The legacy `PLATFORM_ALLOW_PUBLIC=true` bypasses every tenant gate and remains unsuitable for this deployment.
 
 ## ChatGPT and Claude MCP
 
@@ -74,7 +74,7 @@ The public zero-cost connector URL is:
 https://YOUR_DOMAIN/mcp
 ```
 
-It speaks MCP Streamable HTTP and exposes one read-only tool: `glassbox_verify_answer`. The tool runs the same deterministic Lite verifier as the platform adapters, makes no model-provider API call, and returns the full Trust Card as JSON. Add `mcp:public` to `PILOT_TENANT_ALLOWLIST` before connecting a remote client.
+It speaks MCP Streamable HTTP and exposes one read-only tool: `glassbox_verify_answer`. The tool runs the same deterministic Lite verifier as the platform adapters, makes no model-provider API call, and returns the full Trust Card as JSON. Add `mcp` to `PLATFORM_PUBLIC_PLATFORMS` (or allowlist the fixed `mcp:public` tenant) before connecting a remote client.
 
 In ChatGPT, enable Developer mode under **Settings → Security and login**, open **Plugins**, select **+**, and enter the `/mcp` URL as a public connection. In Claude, open **Customize → Connectors → + → Add custom connector** and enter the same URL. No OAuth client or model API key is required for this read-only public tool.
 
@@ -82,7 +82,7 @@ In ChatGPT, enable Developer mode under **Settings → Security and login**, ope
 
 1. Telegram public bot and Discord user-install test: fastest feedback and no marketplace dependency.
 2. GitHub public App: direct installs work without a Marketplace listing.
-3. Slack single-workspace pilot: validate the interaction first, then add OAuth/token storage and grow to the current Marketplace eligibility threshold (5 active workspaces and 10 weekly active users).
+3. Slack single-workspace pilot: validate the interaction first, then add OAuth/token storage and reach the current Marketplace eligibility threshold of 5 active workspaces. Message-level insight generation also needs a written Slack eligibility determination.
 4. Reddit Devvit review: request the exact GlassBox API domain and build the menu action. Enable the classic bridge only if Reddit separately approves that exact Data API use case.
 5. Mattermost and Teams: add through the authenticated universal API after the first four produce real usage data.
 

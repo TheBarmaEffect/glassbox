@@ -13,7 +13,7 @@ PLATFORM_SHARED_SECRET
 PUBLIC_BASE_URL=https://your-domain.example
 ```
 
-For the first deployment, keep `PLATFORM_ALLOW_PUBLIC=false` and set exact tenant keys such as `api,mcp:public,discord:123456789,slack:t123,telegram:-100123,github:owner/repo,reddit:testsub` in `PILOT_TENANT_ALLOWLIST`. The service fails closed for tenants not listed. `mcp:public` opens only the read-only, rate-limited remote MCP surface.
+For the first deployment, keep `PLATFORM_ALLOW_PUBLIC=false`. Set `PLATFORM_PUBLIC_PLATFORMS=discord,telegram,mcp` only after those public entry points are registered, and keep exact tenant keys such as `api,slack:t123,github:owner/repo,reddit:testsub` in `PILOT_TENANT_ALLOWLIST`. Unlisted platforms fail closed. The legacy global public switch remains disabled.
 
 Start on one free instance with concurrency `1`, a per-user limit of `10` audits per 10 minutes, and a global ceiling of `100` accepted audits/day. A free host may sleep while idle, so the first request can be slower. Keep `PLATFORM_ALLOW_PUBLIC=false` and list exact pilot tenant keys in `PILOT_TENANT_ALLOWLIST`. Raise access or concurrency only after observing CPU, memory, latency, and abuse patterns.
 
@@ -45,7 +45,7 @@ The gateway exposes a stateless MCP Streamable HTTP endpoint at:
 https://YOUR_DOMAIN/mcp
 ```
 
-Add `mcp:public` to `PILOT_TENANT_ALLOWLIST`. Keep `PLATFORM_ALLOW_PUBLIC=false`; the fixed MCP tenant key makes this read-only tool publicly usable without opening Discord, Slack, Telegram, GitHub, Reddit, or the bearer-protected API.
+Add `mcp` to `PLATFORM_PUBLIC_PLATFORMS` (or add the fixed `mcp:public` tenant to `PILOT_TENANT_ALLOWLIST`). Keep `PLATFORM_ALLOW_PUBLIC=false`; either narrow option makes this read-only tool publicly usable without opening Slack, GitHub, Reddit, or the bearer-protected API.
 
 The endpoint publishes `glassbox_verify_answer` with read-only, non-destructive, idempotent, closed-world annotations. It uses GlassBox Lite and therefore requires no Anthropic or OpenAI API key.
 
@@ -129,7 +129,7 @@ This audits the issue/PR description using its title as context. Explicit conten
 
 The shortcut opens a modal so the user sees the selected answer and supplies the original prompt before any text is sent for verification. Its result is delivered through Slack's per-interaction `response_url`; the manifest requests only `commands` and deliberately avoids message-history and posting scopes. Slash-command results are private unless `--public` is the first argument.
 
-This is a single-workspace pilot configuration. Public multi-workspace distribution additionally requires OAuth state validation, encrypted per-workspace token storage, app uninstall/data deletion handling, public support pages, and Slack review. Before Marketplace submission, reach Slack's current eligibility threshold of at least 5 active workspaces and 10 weekly active users; allow up to 10 weeks for review. Because GlassBox generates per-message insights, obtain written policy pre-clearance before treating Marketplace approval as a launch path. Do not make Marketplace approval a launch blocker.
+This is a single-workspace pilot configuration. Public multi-workspace distribution additionally requires OAuth state validation, encrypted per-workspace token storage, app uninstall/data deletion handling, public support pages, and Slack review. Before Marketplace submission, reach Slack's current eligibility threshold of at least 5 active workspaces; allow up to 10 weeks for functional review. Slack's current Marketplace guidelines classify message-level insight generation as unsuitable unless the analysis is clearly valuable, transparent, and limited to an aggregate level. Because GlassBox intentionally audits a selected message rather than aggregate workspace data, obtain a written eligibility determination before treating Marketplace approval as a launch path. Do not distribute it at scale as an unlisted app.
 
 ## 7. Reddit — allowlisted classic OAuth pilot
 

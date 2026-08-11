@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { parsePublicPlatforms } from "../src/config.js";
 import { isGitHubCommentsUrl, selectGitHubAuthMode } from "../src/github.js";
 import { deliverShortcutResult, extractSlackVisibility } from "../src/slack.js";
 import {
@@ -84,4 +85,9 @@ test("GitHub comments URL is restricted to the canonical API endpoint", () => {
   assert.equal(isGitHubCommentsUrl("https://api.github.com.evil.test/repos/openai/example/issues/42/comments"), false);
   assert.equal(isGitHubCommentsUrl("https://api.github.com/repos/openai/example/issues/42/comments?redirect=1"), false);
   assert.equal(isGitHubCommentsUrl("https://api.github.com/repos/openai/example/issues/not-a-number/comments"), false);
+});
+
+test("public platform configuration accepts only known platform names", () => {
+  assert.deepEqual([...parsePublicPlatforms(" Discord,telegram,mcp,discord ")], ["discord", "telegram", "mcp"]);
+  assert.throws(() => parsePublicPlatforms("telegram,unknown"), /unsupported values: unknown/);
 });

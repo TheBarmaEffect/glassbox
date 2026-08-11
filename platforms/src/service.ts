@@ -1,6 +1,6 @@
 import { config } from "./config.js";
 import { normalizeInput } from "./parser.js";
-import type { TrustCard, VerificationInput, Verifier } from "./types.js";
+import type { Platform, TrustCard, VerificationInput, Verifier } from "./types.js";
 
 export class DuplicateRequestError extends Error {}
 export class QueueFullError extends Error {}
@@ -25,6 +25,7 @@ interface QueueItem {
 
 interface AdmissionPolicy {
   allowPublic: boolean;
+  publicPlatforms?: ReadonlySet<Platform>;
   tenants: Set<string>;
 }
 
@@ -49,6 +50,7 @@ export class VerificationService {
     private readonly jobTimeoutMs = config.jobTimeoutMs,
     private readonly admission: AdmissionPolicy = {
       allowPublic: config.allowPublic,
+      publicPlatforms: config.publicPlatforms,
       tenants: config.pilotTenants,
     },
   ) {}
@@ -57,7 +59,8 @@ export class VerificationService {
     this.cleanup();
     if (!this.accepting) return Promise.reject(new QueueFullError("Service is shutting down."));
     const tenantKey = options.tenantKey.toLowerCase();
-    if (!this.admission.allowPublic && !this.admission.tenants.has(tenantKey)) {
+    const platformIsPublic = this.admission.publicPlatforms?.has(input.platform) ?? false;
+    if (!this.admission.allowPublic && !platformIsPublic && !this.admission.tenants.has(tenantKey)) {
       return Promise.reject(new AdmissionError("This community is not enabled for the GlassBox pilot."));
     }
     let normalized: VerificationInput;

@@ -9,6 +9,7 @@ import type { TrustCard, Verifier } from "../src/types.js";
 process.env.PLATFORM_SHARED_SECRET = "api-test-secret";
 process.env.OPENAI_APPS_CHALLENGE_TOKEN = "openai-challenge-token";
 process.env.PLATFORM_ALLOW_PUBLIC = "false";
+process.env.PLATFORM_PUBLIC_PLATFORMS = "discord,telegram,mcp";
 process.env.PILOT_TENANT_ALLOWLIST = "api,mcp:public";
 process.env.DISCORD_APPLICATION_ID = "123";
 process.env.SLACK_SIGNING_SECRET = "slack-test-secret";
@@ -51,12 +52,14 @@ test("health reports only fully configured adapters", async () => {
   const response = await fetch(`${base}/health`);
   const body = await response.json() as {
     platforms: string[];
+    public_platforms: string[];
     raw_content_persistence: boolean;
     access: string;
   };
   assert.equal(response.status, 200);
   assert.equal(body.raw_content_persistence, false);
-  assert.equal(body.access, "pilot_allowlist");
+  assert.equal(body.access, "mixed");
+  assert.deepEqual(body.public_platforms, ["discord", "telegram", "mcp"]);
   assert.deepEqual(body.platforms.sort(), ["api", "discord", "github", "mcp", "slack", "telegram"].sort());
 });
 
@@ -82,11 +85,17 @@ test("pilot readiness rejects public or concurrent deployment settings", () => {
     backend: "lite" as const,
     anthropicConfigured: false,
     allowPublic: false,
+    publicPlatformCount: 0,
     maxConcurrency: 1,
     pilotTenantCount: 1,
     platformCount: 1,
   };
   assert.equal(pilotReadinessProblem(baseSettings), undefined);
+  assert.equal(pilotReadinessProblem({
+    ...baseSettings,
+    pilotTenantCount: 0,
+    publicPlatformCount: 3,
+  }), undefined);
   assert.match(pilotReadinessProblem({ ...baseSettings, allowPublic: true }) ?? "", /Public access/);
   assert.match(pilotReadinessProblem({ ...baseSettings, maxConcurrency: 2 }) ?? "", /MAX_CONCURRENCY=1/);
   assert.match(pilotReadinessProblem({
