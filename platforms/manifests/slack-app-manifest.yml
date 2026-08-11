@@ -8,7 +8,7 @@ features:
     always_online: false
   slash_commands:
     - command: /glassbox
-      url: https://YOUR_DOMAIN/slack/commands
+      url: https://glassbox-platform-gateway.onrender.com/slack/commands
       description: Audit an AI answer
       usage_hint: "[--public] question || answer || optional intent 1; intent 2"
       should_escape: false
@@ -23,7 +23,7 @@ oauth_config:
 settings:
   interactivity:
     is_enabled: true
-    request_url: https://YOUR_DOMAIN/slack/interactions
+    request_url: https://glassbox-platform-gateway.onrender.com/slack/interactions
   org_deploy_enabled: false
   socket_mode_enabled: false
   token_rotation_enabled: false
