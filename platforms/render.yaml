@@ -30,3 +30,11 @@ services:
         sync: false
       - key: PLATFORM_SHARED_SECRET
         generateValue: true
+      - key: PUBLIC_BASE_URL
+        value: "https://glassbox-platform-gateway.onrender.com"
+      - key: GITHUB_MARKETPLACE_WEBHOOK_SECRET
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false

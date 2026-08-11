@@ -6,6 +6,7 @@ One deployable Node 20 service that brings the published GlassBox v1 Trust Card 
 - Slack: `/glassbox` and **Analyze with GlassBox** message shortcut + review modal
 - Telegram: `/glassbox --consent` on a replied-to message or explicit question/answer
 - GitHub: `/glassbox` issue or pull-request comments
+- GitHub Marketplace: isolated free-plan purchase/cancellation webhook and credential-gated Setup OAuth flow
 - Reddit: disabled-by-default classic bridge for explicitly approved Data API pilots; Devvit is the primary path
 - ChatGPT and Claude: public MCP Streamable HTTP at `/mcp`
 - Any approved platform: authenticated `POST /api/v1/verify`
@@ -93,6 +94,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for exact setup and current review constraint
 ## Security and privacy defaults
 
 - Raw request bodies are used only for provider signature verification and are not logged.
+- GitHub Marketplace purchase payloads and OAuth tokens are never logged or persisted; the temporary user token is revoked after free-plan verification.
 - Raw prompts and answers are not stored by this service.
 - Completed event IDs are held in memory for up to 24 hours for deduplication; rate counters last 10 minutes.
 - Submitted content and generated Trust Cards remain in memory only while an audit runs and for at most five minutes while delivery is confirmed.
