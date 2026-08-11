@@ -1,0 +1,44 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "glassbox-audit",
+  "server": {
+    "dir": "dist/server",
+    "entry": "index.cjs"
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "Audit with GlassBox",
+        "description": "Privately inspect the selected post or comment with the deterministic GlassBox Lite gateway.",
+        "location": ["post", "comment"],
+        "forUserType": "user",
+        "endpoint": "/internal/menu/audit"
+      }
+    ]
+  },
+  "forms": {
+    "confirmAudit": "/internal/forms/confirm-audit",
+    "closeResult": "/internal/forms/close-result"
+  },
+  "settings": {
+    "global": {
+      "glassboxGatewaySecret": {
+        "type": "string",
+        "label": "GlassBox gateway bearer secret",
+        "isSecret": true
+      }
+    }
+  },
+  "permissions": {
+    "http": {
+      "enable": true,
+      "domains": ["glassbox-platform-gateway.onrender.com"]
+    },
+    "reddit": true
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  },
+  "sourceIgnores": ["coverage/", "fixtures/", "*.log"]
+}

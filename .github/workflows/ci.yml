@@ -27,6 +27,23 @@ jobs:
       - run: npm run build
       - run: npm audit --omit=dev --audit-level=high
 
+  reddit-devvit:
+    name: Reddit Devvit app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: platforms/devvit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.20.0'
+          cache: 'npm'
+          cache-dependency-path: platforms/devvit/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - run: npm run audit:runtime
+
   typescript:
     name: TypeScript strict-mode + MCP smoke test
     runs-on: ubuntu-latest
