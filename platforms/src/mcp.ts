@@ -12,8 +12,117 @@ import {
   MAX_TOTAL_INTENT_CHARS,
 } from "./parser.js";
 import { VerificationService } from "./service.js";
+import type { RedTeamProbe, TrustCard } from "./types.js";
 
 export const GLASSBOX_MCP_TOOL = "glassbox_verify_answer";
+
+const PUBLIC_PROBE_COPY = {
+  claim_extraction: {
+    passed: "Claims were extracted within the deterministic analysis limit.",
+    failed: "The answer exceeded the deterministic claim-analysis limit.",
+  },
+  unsupported_certainty: {
+    passed: "No unsupported absolute-certainty signal was detected.",
+    failed: "Unsupported absolute-certainty language was detected.",
+  },
+  internal_contradiction: {
+    passed: "No direct internal contradiction was detected.",
+    failed: "A direct internal contradiction was detected.",
+  },
+  prompt_injection: {
+    passed: "No instruction-like prompt-injection signal was detected.",
+    failed: "Instruction-like prompt-injection language was detected and treated as inert text.",
+  },
+  fact_check_scope: {
+    passed: "The answer did not overstate the scope of this non-web audit.",
+    failed: "The request requires external fact-checking that GlassBox Lite does not perform.",
+  },
+  citation_verifiability: {
+    passed: "No citation-transparency issue was detected by the structural check.",
+    failed: "A citation-transparency issue was detected; external sources were not authenticated.",
+  },
+  arithmetic_sanity: {
+    passed: "No error was found in the supported arithmetic forms that were present.",
+    failed: "A supported arithmetic expression failed deterministic recomputation.",
+  },
+} as const;
+
+type PublicProbeAngle = keyof typeof PUBLIC_PROBE_COPY;
+type Severity = RedTeamProbe["severity"];
+
+const PUBLIC_PROBE_ANGLES = Object.keys(PUBLIC_PROBE_COPY) as PublicProbeAngle[];
+const PublicProbeAngleSchema = z.enum(PUBLIC_PROBE_ANGLES as [PublicProbeAngle, ...PublicProbeAngle[]]);
+const SeveritySchema = z.enum(["low", "medium", "high", "critical"]);
+const PublicFindingSchema = z.object({
+  angle: PublicProbeAngleSchema,
+  severity: SeveritySchema,
+  summary: z.string(),
+});
+const PublicProbeSchema = PublicFindingSchema.extend({ passed: z.boolean() });
+
+interface PublicMcpResult {
+  verdict: TrustCard["verdict"];
+  summary: string;
+  score: number;
+  claim_count: number;
+  finding_count: number;
+  highest_severity: Severity;
+  findings: Array<{ angle: PublicProbeAngle; severity: Severity; summary: string }>;
+  probes: Array<{ angle: PublicProbeAngle; passed: boolean; severity: Severity; summary: string }>;
+  caveats: string[];
+}
+
+const PUBLIC_CAVEATS = [
+  "GlassBox Lite is a deterministic reasoning audit, not a web fact-check.",
+  "External facts and citations were not authenticated or verified.",
+  "Do not use this result as professional or consequential advice.",
+] as const;
+
+const SEVERITY_ORDER: Record<Severity, number> = {
+  low: 0,
+  medium: 1,
+  high: 2,
+  critical: 3,
+};
+
+export function publicMcpResult(card: TrustCard): PublicMcpResult {
+  const probes = PUBLIC_PROBE_ANGLES.flatMap((angle) => {
+    const probe = card.red_team.probes.find((candidate) => candidate.angle === angle);
+    if (!probe) return [];
+    return [{
+      angle,
+      passed: probe.passed,
+      severity: probe.severity,
+      summary: PUBLIC_PROBE_COPY[angle][probe.passed ? "passed" : "failed"],
+    }];
+  });
+  const findings = probes
+    .filter((probe) => !probe.passed)
+    .map(({ angle, severity, summary }) => ({ angle, severity, summary }));
+  const highestSeverity = findings.reduce<Severity>(
+    (highest, finding) => SEVERITY_ORDER[finding.severity] > SEVERITY_ORDER[highest]
+      ? finding.severity
+      : highest,
+    "low",
+  );
+  const summary = card.verdict === "trust"
+    ? "No deterministic structural red flags were found."
+    : card.verdict === "reject"
+      ? "A deterministic structural check found a rejection-level issue."
+      : "One or more deterministic structural checks require caution.";
+
+  return {
+    verdict: card.verdict,
+    summary,
+    score: card.ecs.total,
+    claim_count: card.claims.length,
+    finding_count: findings.length,
+    highest_severity: highestSeverity,
+    findings,
+    probes,
+    caveats: [...PUBLIC_CAVEATS],
+  };
+}
 
 export function createGlassboxMcpServer(service: VerificationService): McpServer {
   const server = new McpServer({
@@ -26,10 +135,11 @@ export function createGlassboxMcpServer(service: VerificationService): McpServer
     {
       title: "Verify an AI answer with GlassBox Lite",
       description:
-        "Audit a question/answer pair with the zero-cost deterministic GlassBox Lite engine. " +
-        "Returns a transparent Trust Card covering claims, arithmetic and contradiction checks, " +
-        "unsupported certainty, citation transparency, prompt-injection signals, ECS dimensions, " +
-        "and an audit reference. This is a reasoning audit, not a web fact-check or professional advice.",
+        "Use this when a user explicitly asks to audit a supplied question/answer pair with the " +
+        "zero-cost deterministic GlassBox Lite engine. Returns a privacy-minimized verdict, score, " +
+        "fixed-category findings, probe results, and caveats covering claims, arithmetic, direct " +
+        "contradictions, unsupported certainty, citation transparency, and prompt-injection signals. " +
+        "Do not use it as a web fact-check, source authenticator, truth guarantee, or professional advice.",
       inputSchema: {
         question: z.string().trim().min(1).max(MAX_QUESTION_CHARS)
           .describe(`The original question or prompt (maximum ${MAX_QUESTION_CHARS} characters).`),
@@ -49,48 +159,15 @@ export function createGlassboxMcpServer(service: VerificationService): McpServer
           ),
       },
       outputSchema: {
-        question: z.string(),
-        answer: z.string(),
         verdict: z.enum(["trust", "caution", "reject"]),
-        verdict_rationale: z.string(),
-        ecs: z.object({
-          total: z.number().min(0).max(1),
-          dimensions: z.record(z.number().min(0).max(1)),
-          notes: z.array(z.string()),
-        }),
-        claims: z.array(z.object({
-          id: z.string(),
-          text: z.string(),
-          reasoning: z.string(),
-          confidence: z.number().min(0).max(1),
-          supporting_evidence: z.array(z.string()),
-          attack_surface: z.array(z.string()),
-          status: z.enum(["observed", "reconstructed", "assumed"]),
-        })),
-        red_team: z.object({
-          probes: z.array(z.object({
-            angle: z.string(),
-            passed: z.boolean(),
-            severity: z.enum(["low", "medium", "high", "critical"]),
-            finding: z.string(),
-            evidence: z.array(z.string()),
-          })),
-          pass_rate: z.number().min(0).max(1),
-          highest_severity: z.enum(["low", "medium", "high", "critical"]),
-        }),
-        constitution: z.object({
-          rules: z.array(z.object({
-            id: z.string(),
-            requirement: z.string(),
-            severity: z.string(),
-          })),
-          evaluations: z.record(z.enum(["satisfied", "violated", "not_triggered"])).optional(),
-        }),
-        audit: z.object({
-          log_id: z.string(),
-          generated_at: z.string(),
-          inputs_hash: z.string(),
-        }),
+        summary: z.string(),
+        score: z.number().min(0).max(1),
+        claim_count: z.number().int().nonnegative(),
+        finding_count: z.number().int().nonnegative(),
+        highest_severity: SeveritySchema,
+        findings: z.array(PublicFindingSchema),
+        probes: z.array(PublicProbeSchema),
+        caveats: z.array(z.string()),
       },
       annotations: {
         readOnlyHint: true,
@@ -111,9 +188,10 @@ export function createGlassboxMcpServer(service: VerificationService): McpServer
           },
         );
         service.markDelivered(eventKey);
+        const publicResult = publicMcpResult(card);
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(card, null, 2) }],
-          structuredContent: { ...card },
+          content: [{ type: "text" as const, text: JSON.stringify(publicResult, null, 2) }],
+          structuredContent: { ...publicResult },
         };
       } catch (error) {
         service.markDeliveryFailed(eventKey);

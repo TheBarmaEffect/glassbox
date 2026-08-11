@@ -41,11 +41,11 @@ No classic Data API, Reddit OAuth client, user-action permission, posting/commen
 
 ## Developer Portal checklist
 
-Before the authorized owner runs `devvit publish --public`, confirm that App Details contains:
+Before the authorized owner submits or resubmits for public review, confirm that App Details contains:
 
 - a plain-language description and appropriate categories;
 - <https://glassbox-platform-gateway.onrender.com/privacy> as the Privacy Policy;
 - <https://glassbox-platform-gateway.onrender.com/terms> as the Terms and Conditions; and
 - the 1024x1024 app icon declared by `marketingAssets.icon`.
 
-The exact Fetch domain must show **Approved** in Developer Settings. A pending domain request is not a code failure and is reviewed separately by Reddit.
+The exact Fetch domain must show **Approved** in Developer Settings before the external call can be relied on for public installs. A pending domain request is not a code failure and is reviewed separately by Reddit.

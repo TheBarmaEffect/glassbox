@@ -62,7 +62,7 @@ Claude setup:
 3. Enter the same `/mcp` URL and leave optional OAuth fields empty.
 4. Add the connector and enable it in a conversation.
 
-Run a representative canary in each client: ask it to audit `17 * 6 = 112` and require the returned verdict, arithmetic finding, ECS, and audit reference.
+Run a representative canary in each client: ask it to audit `17 * 6 = 112` and require the returned verdict, score, arithmetic finding, and scope caveats. Confirm the MCP response does not echo the submitted text or contain timestamps, audit IDs, or input hashes.
 
 ## 3. Telegram — public beta first
 

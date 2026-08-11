@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createGlassboxMcpServer, GLASSBOX_MCP_TOOL } from "../src/mcp.js";
+import { createGlassboxMcpServer, GLASSBOX_MCP_TOOL, publicMcpResult } from "../src/mcp.js";
 import {
   MAX_ANSWER_CHARS,
   MAX_INTENTS,
@@ -28,11 +28,11 @@ const card: TrustCard = {
   },
 };
 
-async function connectedClient(): Promise<{
+async function connectedClient(resultCard: TrustCard = card): Promise<{
   client: Client;
   close: () => Promise<void>;
 }> {
-  const verifier: Verifier = { verify: async () => card };
+  const verifier: Verifier = { verify: async () => resultCard };
   const service = new VerificationService(
     verifier,
     1,
@@ -72,18 +72,21 @@ test("MCP metadata exposes the exact gateway limits and TrustCard output schema"
 
     const output = tool.outputSchema as { required?: string[]; properties?: Record<string, unknown> };
     assert.ok(output.properties?.verdict);
-    assert.ok(output.properties?.ecs);
-    assert.ok(output.properties?.claims);
-    assert.ok(output.properties?.red_team);
-    assert.ok(output.properties?.constitution);
-    assert.ok(output.properties?.audit);
+    assert.ok(output.properties?.score);
+    assert.ok(output.properties?.claim_count);
+    assert.ok(output.properties?.findings);
+    assert.ok(output.properties?.probes);
+    assert.ok(output.properties?.caveats);
+    assert.equal(output.properties?.question, undefined);
+    assert.equal(output.properties?.answer, undefined);
+    assert.equal(output.properties?.audit, undefined);
     assert.ok(output.required?.includes("verdict"));
   } finally {
     await connection.close();
   }
 });
 
-test("MCP returns the TrustCard as both text and validated structured content", async () => {
+test("MCP returns a privacy-minimized result as both text and structured content", async () => {
   const connection = await connectedClient();
   try {
     const result = await connection.client.callTool({
@@ -91,9 +94,90 @@ test("MCP returns the TrustCard as both text and validated structured content", 
       arguments: { question: card.question, answer: card.answer },
     });
     assert.equal(result.isError, undefined);
-    assert.deepEqual(result.structuredContent, card);
+    assert.deepEqual(result.structuredContent, publicMcpResult(card));
     const content = result.content as Array<{ type: string; text?: string }>;
-    assert.deepEqual(JSON.parse(content[0]?.text ?? "{}"), card);
+    assert.deepEqual(JSON.parse(content[0]?.text ?? "{}"), publicMcpResult(card));
+  } finally {
+    await connection.close();
+  }
+});
+
+test("MCP never echoes submitted content, verifier excerpts, or internal audit metadata", async () => {
+  const secret = "PRIVATE-CONTENT-DO-NOT-ECHO";
+  const privateCard: TrustCard = {
+    ...card,
+    question: `${secret}-question`,
+    answer: `${secret}-answer`,
+    verdict: "caution",
+    verdict_rationale: `${secret}-rationale`,
+    ecs: { total: 0.4, dimensions: { [secret]: 0 }, notes: [`${secret}-note`] },
+    claims: [{
+      id: `${secret}-claim-id`,
+      text: `${secret}-claim-text`,
+      reasoning: `${secret}-reasoning`,
+      confidence: 0.2,
+      supporting_evidence: [`${secret}-evidence`],
+      attack_surface: [`${secret}-attack`],
+      status: "observed",
+    }],
+    red_team: {
+      probes: [{
+        angle: "unsupported_certainty",
+        passed: false,
+        severity: "medium",
+        finding: `${secret}-finding`,
+        evidence: [`${secret}-probe-evidence`],
+      }],
+      pass_rate: 0,
+      highest_severity: "medium",
+    },
+    audit: {
+      log_id: `${secret}-log-id`,
+      generated_at: `${secret}-generated-at`,
+      inputs_hash: `${secret}-inputs-hash`,
+    },
+  };
+  const connection = await connectedClient(privateCard);
+  try {
+    const result = await connection.client.callTool({
+      name: GLASSBOX_MCP_TOOL,
+      arguments: { question: privateCard.question, answer: privateCard.answer },
+    });
+    const serialized = JSON.stringify(result);
+    assert.doesNotMatch(serialized, new RegExp(secret));
+    const structured = result.structuredContent as Record<string, unknown>;
+    for (const forbidden of ["question", "answer", "audit", "generated_at", "log_id", "inputs_hash"]) {
+      assert.equal(forbidden in structured, false);
+    }
+    assert.deepEqual(structured.findings, [{
+      angle: "unsupported_certainty",
+      severity: "medium",
+      summary: "Unsupported absolute-certainty language was detected.",
+    }]);
+    const differentPrivateContent: TrustCard = {
+      ...privateCard,
+      question: "different private question",
+      answer: "different private answer",
+      verdict_rationale: "different private rationale",
+      ecs: { ...privateCard.ecs, dimensions: { private_dimension: 0.4 }, notes: ["private note"] },
+      claims: privateCard.claims.map((claim) => ({
+        ...claim,
+        text: "different private claim",
+        reasoning: "different private reasoning",
+        supporting_evidence: ["different private evidence"],
+        attack_surface: ["different private attack surface"],
+      })),
+      red_team: {
+        ...privateCard.red_team,
+        probes: privateCard.red_team.probes.map((probe) => ({
+          ...probe,
+          finding: "different private finding",
+          evidence: ["different private probe evidence"],
+        })),
+      },
+      audit: { log_id: "different", generated_at: "different", inputs_hash: "different" },
+    };
+    assert.deepEqual(publicMcpResult(privateCard), publicMcpResult(differentPrivateContent));
   } finally {
     await connection.close();
   }
@@ -112,6 +196,31 @@ test("MCP rejects intent payloads above the parser's total-character limit", asy
     });
     assert.equal(result.isError, true);
     assert.match(JSON.stringify(result.content), /invalid|total|4000/i);
+  } finally {
+    await connection.close();
+  }
+});
+
+test("MCP rejects question, answer, and intent counts above the parser limits", async () => {
+  const connection = await connectedClient();
+  try {
+    const invalidArguments = [
+      { question: "q".repeat(MAX_QUESTION_CHARS + 1), answer: card.answer },
+      { question: card.question, answer: "a".repeat(MAX_ANSWER_CHARS + 1) },
+      {
+        question: card.question,
+        answer: card.answer,
+        intents: Array.from({ length: MAX_INTENTS + 1 }, () => "rule"),
+      },
+    ];
+    for (const arguments_ of invalidArguments) {
+      const result = await connection.client.callTool({
+        name: GLASSBOX_MCP_TOOL,
+        arguments: arguments_,
+      });
+      assert.equal(result.isError, true);
+      assert.match(JSON.stringify(result.content), /invalid/i);
+    }
   } finally {
     await connection.close();
   }

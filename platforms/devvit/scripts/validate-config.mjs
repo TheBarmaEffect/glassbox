@@ -31,6 +31,10 @@ for (const requiredText of [GATEWAY_DOMAIN, PRIVACY_URL, TERMS_URL]) {
 const iconPath = config.marketingAssets?.icon;
 if (!iconPath) throw new Error('devvit.json must configure marketingAssets.icon.');
 const icon = readFileSync(iconPath);
+const maxIconBytes = 500 * 1024;
+if (icon.byteLength > maxIconBytes) {
+  throw new Error(`${iconPath} must be at most 500KB; received ${icon.byteLength} bytes.`);
+}
 const pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 if (!icon.subarray(0, pngSignature.length).equals(pngSignature)) {
   throw new Error(`${iconPath} must be a PNG.`);

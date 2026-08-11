@@ -74,7 +74,7 @@ The public zero-cost connector URL is:
 https://YOUR_DOMAIN/mcp
 ```
 
-It speaks MCP Streamable HTTP and exposes one read-only tool: `glassbox_verify_answer`. The tool runs the same deterministic Lite verifier as the platform adapters, makes no model-provider API call, and returns the full Trust Card as JSON. Add `mcp` to `PLATFORM_PUBLIC_PLATFORMS` (or allowlist the fixed `mcp:public` tenant) before connecting a remote client.
+It speaks MCP Streamable HTTP and exposes one read-only tool: `glassbox_verify_answer`. The tool runs the same deterministic Lite verifier as the platform adapters and makes no model-provider API call. Its public response contains a verdict, score, claim count, fixed-category findings, probe outcomes, and scope caveats. It does not echo the submitted question or answer, claim excerpts, verifier evidence, timestamps, audit IDs, input hashes, or other internal metadata. Add `mcp` to `PLATFORM_PUBLIC_PLATFORMS` (or allowlist the fixed `mcp:public` tenant) before connecting a remote client.
 
 In ChatGPT, enable Developer mode under **Settings → Security and login**, open **Plugins**, select **+**, and enter the `/mcp` URL as a public connection. In Claude, open **Customize → Connectors → + → Add custom connector** and enter the same URL. No OAuth client or model API key is required for this read-only public tool.
 
