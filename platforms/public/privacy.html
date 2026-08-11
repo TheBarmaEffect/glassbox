@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GlassBox Platform Privacy</title></head>
+<body style="max-width:760px;margin:40px auto;padding:0 20px;font:16px/1.6 system-ui;color:#111827">
+<h1>GlassBox Platform Privacy Notice</h1>
+<p><strong>Effective August 10, 2026.</strong></p>
+<p>GlassBox performs a user-requested automated reasoning audit. It processes the question, answer, and optional rules that a user explicitly submits or selects. The gateway also handles provider event IDs and short-lived requester identifiers—such as Discord user/server IDs, Slack user/workspace IDs, Telegram user/chat IDs, GitHub sender/repository IDs, and Reddit author/subreddit IDs—for authentication, duplicate prevention, delivery, abuse prevention, and rate limiting.</p>
+<h2>Processing and sharing</h2>
+<p>The gateway sends submitted text to the GlassBox v1 verifier, which uses Anthropic's API under the operator's API account. The gateway does not send platform user IDs, workspace/server/community names, repository names, URLs, or author metadata to the verifier. Anthropic handles submitted text under the operator's API account settings, data controls, and terms; the operator must disclose any account-specific retention or residency configuration to pilot users.</p>
+<h2>Retention</h2>
+<p>This gateway does not persist raw questions, answers, platform messages, or Trust Cards to a database or file. Submitted content and its Trust Card exist in process memory while an audit runs and, after verification, for at most five minutes while platform delivery is confirmed. It keeps provider event identifiers in memory for up to 24 hours to prevent duplicate processing and requester/tenant identifiers in memory for up to 10 minutes for rate limiting. Process memory is discarded on restart. Telegram requires explicit per-audit consent before text is sent. Platform providers may retain messages under their own policies.</p>
+<h2>Logs and security</h2>
+<p>Operational logs record service status and error categories, not submitted content. Provider signatures protect webhook endpoints, and the generic API requires a server-side bearer secret.</p>
+<h2>Your choices</h2>
+<p>Analysis is opt-in. Telegram consent applies to one audit and is not stored; Slack public delivery occurs only when <code>--public</code> is the first command argument. Do not submit confidential, regulated, or third-party content unless you have authority to do so. Because the gateway does not retain submitted content, there is normally no stored content to access, transfer, correct, or delete. You can delete the bot's visible response using the controls offered by the platform. For a data-rights request or to revoke platform authorization, email the contact below and identify the relevant platform and app installation; do not email the confidential content itself.</p>
+<h2>Contact</h2>
+<p>Questions or incident reports: <a href="mailto:thebarmaeffect@gmail.com">thebarmaeffect@gmail.com</a>.</p>
+</body></html>

@@ -1,0 +1,29 @@
+display_information:
+  name: GlassBox
+  description: User-invoked reasoning audits and transparent Trust Cards for AI answers.
+  background_color: "#111827"
+features:
+  bot_user:
+    display_name: GlassBox
+    always_online: false
+  slash_commands:
+    - command: /glassbox
+      url: https://YOUR_DOMAIN/slack/commands
+      description: Audit an AI answer
+      usage_hint: "[--public] question || answer || optional intent 1; intent 2"
+      should_escape: false
+  shortcuts:
+    - name: Analyze with GlassBox
+      type: message
+      callback_id: glassbox_verify_message
+oauth_config:
+  scopes:
+    bot:
+      - commands
+settings:
+  interactivity:
+    is_enabled: true
+    request_url: https://YOUR_DOMAIN/slack/interactions
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: glassbox-platform-gateway
+    runtime: docker
+    rootDir: platforms
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /ready
+    numInstances: 1
+    autoDeploy: false
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: PORT
+        value: "8080"
+      - key: PLATFORM_MAX_CONCURRENCY
+        value: "1"
+      - key: PLATFORM_MAX_QUEUE
+        value: "50"
+      - key: PLATFORM_DAILY_REQUEST_LIMIT
+        value: "100"
+      - key: PLATFORM_ALLOW_PUBLIC
+        value: "false"
+      - key: PILOT_TENANT_ALLOWLIST
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: PLATFORM_SHARED_SECRET
+        generateValue: true
