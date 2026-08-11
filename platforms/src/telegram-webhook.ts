@@ -40,7 +40,7 @@ export async function registerTelegramWebhook(
       }),
     });
   } catch {
-    throw new Error("Telegram webhook registration request failed; the gateway was not started.");
+    throw new Error("Telegram webhook registration request failed; the adapter was not enabled.");
   }
 
   let result: { ok?: boolean; result?: boolean };
@@ -50,7 +50,7 @@ export async function registerTelegramWebhook(
     throw new Error(`Telegram webhook registration returned an invalid response (HTTP ${response.status}).`);
   }
   if (!response.ok || !result.ok || result.result !== true) {
-    throw new Error(`Telegram webhook registration failed (HTTP ${response.status}); the gateway was not started.`);
+    throw new Error(`Telegram webhook registration failed (HTTP ${response.status}); the adapter was not enabled.`);
   }
   return "registered";
 }

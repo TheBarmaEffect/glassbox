@@ -9,23 +9,23 @@ One deployable Node 20 service that brings the published GlassBox v1 Trust Card 
 - Reddit: disabled-by-default classic bridge for explicitly approved Data API pilots; Devvit is the primary path
 - Any approved platform: authenticated `POST /api/v1/verify`
 
-The gateway wraps `@glassbox-framework/mcp@1.0.3`, keeps one warm MCP child process, limits Anthropic concurrency, and produces compact platform-native Trust Cards. It does not monitor conversations or persist raw question/answer content.
+The gateway uses the deterministic GlassBox Lite verifier by default and produces compact platform-native Trust Cards without a paid model API, API key, or network lookup. It does not monitor conversations or persist raw question/answer content. The published `@glassbox-framework/mcp@1.0.3`/Anthropic verifier remains an explicit opt-in backend for operators who provide their own key.
 
 ## Quick start
 
 ```bash
 cd platforms
 cp .env.example .env
-# Fill ANTHROPIC_API_KEY and PLATFORM_SHARED_SECRET first.
+# Keep GLASSBOX_BACKEND=lite. Set PLATFORM_SHARED_SECRET for the universal API.
 npm install
 npm test
 npm run build
 npm start
 ```
 
-Check `http://localhost:8080/health` for liveness and `/ready` for MCP/API-key readiness. Only adapters whose complete credentials are present appear in the `platforms` list.
+Check `http://localhost:8080/health` for liveness and `/ready` for selected-verifier readiness. Lite is ready without an external API key. Only adapters whose complete credentials are present appear in the `platforms` list.
 
-When Telegram credentials are configured, startup registers `${PUBLIC_BASE_URL}/telegram/webhook` before the gateway begins listening. Startup fails closed if the Telegram registration cannot be completed; the failure message never includes the bot token or webhook secret.
+When Telegram credentials are configured, startup registers `${PUBLIC_BASE_URL}/telegram/webhook` before the gateway begins listening. If registration fails, Telegram is disabled for that process while the core gateway and other adapters remain healthy; tokens and webhook secrets are never logged.
 
 Run the container:
 
@@ -53,23 +53,24 @@ Discord / Slack / Telegram / GitHub / Reddit / API
                          |
    tenant admission + idempotency + requester limit
                          |
-  daily spend breaker + bounded queue (concurrency 1)
+   daily volume breaker + bounded queue (concurrency 1)
                          |
-       persistent GlassBox MCP child (stdio)
+ deterministic Lite verifier (default, no network)
+       or explicit MCP/Anthropic opt-in
                          |
              compact Trust Card formatter
 ```
 
-No platform user ID, server/workspace name, subreddit, repository name, or URL is sent to GlassBox. Only the explicitly submitted question, answer, and optional intents cross the MCP boundary.
+No platform user ID, server/workspace name, subreddit, repository name, or URL is passed to the verifier. With Lite, the explicitly submitted question, answer, and optional intents remain inside this process. With the optional Anthropic backend, only those submitted text fields cross the MCP boundary.
 
-The default is a closed pilot. `PILOT_TENANT_ALLOWLIST` accepts exact lowercase keys: `api`, `discord:<guild-id>` (or `discord:user:<user-id>`), `slack:<team-id>`, `telegram:<chat-id>`, `github:<owner/repo>`, and `reddit:<subreddit>`. Setting `PLATFORM_ALLOW_PUBLIC=true` bypasses this gate and should happen only after platform approval, multi-tenant controls, and spend monitoring are ready.
+The default is a closed pilot. `PILOT_TENANT_ALLOWLIST` accepts exact lowercase keys: `api`, `discord:<guild-id>` (or `discord:user:<user-id>`), `slack:<team-id>`, `telegram:<chat-id>`, `github:<owner/repo>`, and `reddit:<subreddit>`. Setting `PLATFORM_ALLOW_PUBLIC=true` bypasses this gate and should happen only after platform approval and multi-tenant abuse controls are ready.
 
 ## Platform launch order
 
 1. Telegram public bot and Discord user-install test: fastest feedback and no marketplace dependency.
 2. GitHub public App: direct installs work without a Marketplace listing.
 3. Slack single-workspace pilot: validate the interaction first, then add OAuth/token storage and grow to the current Marketplace eligibility threshold (5 active workspaces and 10 weekly active users).
-4. Reddit Devvit review: request the exact GlassBox API domain and build the menu action. Enable the classic bridge only if Reddit separately approves that exact Data API and Anthropic-processing use case.
+4. Reddit Devvit review: request the exact GlassBox API domain and build the menu action. Enable the classic bridge only if Reddit separately approves that exact Data API use case.
 5. Mattermost and Teams: add through the authenticated universal API after the first four produce real usage data.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for exact setup and current review constraints.
@@ -84,7 +85,8 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for exact setup and current review constraint
 - Discord, Slack, Telegram, and GitHub requests are authenticated with each platform's signed webhook mechanism.
 - `allowed_mentions` is disabled in Discord responses; links are not unfurled in Slack.
 - Verification is an automated reasoning audit, not a fact-check, moderation decision, or professional advice.
-- The v1 verifier sends submitted text to Anthropic using the deployer's API key. This must be disclosed to pilot users.
+- The default Lite verifier is offline and deterministic. It checks structure, calibration, internal contradictions, citations that need verification, and simple arithmetic; it does not establish factual truth.
+- The optional Anthropic backend must be selected explicitly with `GLASSBOX_BACKEND=anthropic`, requires the deployer's API key, and must be disclosed to pilot users.
 - Discord delivery is hard-stopped before its 15-minute interaction-token expiry even if an operator raises the generic job timeout.
 - The classic Reddit worker remains disabled unless `REDDIT_DATA_API_APPROVED=true` is set after written approval.
 
@@ -100,4 +102,4 @@ Implement a thin adapter that:
 4. Uses a provider event ID for idempotency and a tenant/user tuple for rate limiting.
 5. Returns `formatTrustCard()` or `formatPlainTrustCard()` output.
 
-This keeps new adapters independent of the MCP implementation and leaves a clean path to swap in the local deterministic v0.3 backend if that source is restored.
+This keeps new adapters independent of the selected verifier backend.

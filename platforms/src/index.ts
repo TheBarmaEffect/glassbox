@@ -1,20 +1,28 @@
 import { config, enabledPlatforms } from "./config.js";
-import { GlassboxMcpVerifier } from "./glassbox.js";
 import { RedditWorker } from "./reddit.js";
 import { buildServer } from "./server.js";
 import { VerificationService } from "./service.js";
 import { registerTelegramWebhook } from "./telegram-webhook.js";
+import { createVerifier } from "./verifier.js";
 
-const verifier = new GlassboxMcpVerifier();
+const verifier = createVerifier(config.verifierBackend);
 const service = new VerificationService(verifier);
 const app = buildServer(service);
 const reddit = new RedditWorker(service);
 
-await registerTelegramWebhook({
-  botToken: config.telegram.botToken,
-  webhookSecret: config.telegram.webhookSecret,
-  publicBaseUrl: config.publicBaseUrl,
-});
+try {
+  await registerTelegramWebhook({
+    botToken: config.telegram.botToken,
+    webhookSecret: config.telegram.webhookSecret,
+    publicBaseUrl: config.publicBaseUrl,
+  });
+} catch {
+  // A platform-specific credential must not take the zero-cost core service down.
+  // Clear both values so the adapter also fails closed for inbound requests.
+  config.telegram.botToken = undefined;
+  config.telegram.webhookSecret = undefined;
+  console.warn("Telegram adapter disabled because webhook registration failed.");
+}
 
 const server = app.listen(config.port, "0.0.0.0", () => {
   console.log(`GlassBox platform gateway listening on :${config.port}`);
@@ -29,7 +37,7 @@ async function shutdown(signal: string): Promise<void> {
   reddit.stop();
   await Promise.race([closed, new Promise<void>((resolve) => setTimeout(resolve, 10_000))]);
   await service.waitForIdle(10_000);
-  await verifier.close();
+  await verifier.close?.();
   process.exitCode = 0;
 }
 

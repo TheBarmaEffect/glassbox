@@ -57,7 +57,8 @@ test("Telegram accepts consent only as the leading per-audit flag", () => {
     extractTelegramConsent("question || answer says --consent"),
     { consented: false, text: "question || answer says --consent" },
   );
-  assert.match(consentNotice(), /Anthropic/);
+  assert.match(consentNotice(), /GlassBox Lite/);
+  assert.match(consentNotice(), /no paid model call/);
   assert.match(consentNotice(), /one audit/);
   assert.match(consentNotice(), /\/privacy/);
 });

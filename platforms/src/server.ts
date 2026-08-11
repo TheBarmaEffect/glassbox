@@ -10,6 +10,7 @@ import { VerificationService } from "./service.js";
 import { telegramRouter } from "./telegram.js";
 
 interface PilotReadinessSettings {
+  backend?: "lite" | "anthropic";
   anthropicConfigured: boolean;
   allowPublic: boolean;
   maxConcurrency: number;
@@ -18,7 +19,10 @@ interface PilotReadinessSettings {
 }
 
 export function pilotReadinessProblem(settings: PilotReadinessSettings): string | undefined {
-  if (!settings.anthropicConfigured) return "ANTHROPIC_API_KEY is not configured.";
+  const backend = settings.backend ?? "anthropic";
+  if (backend === "anthropic" && !settings.anthropicConfigured) {
+    return "ANTHROPIC_API_KEY is not configured for the explicitly selected Anthropic backend.";
+  }
   if (settings.platformCount === 0) return "No platform adapter is configured.";
   if (settings.allowPublic) return "Public access is not approved for this pilot deployment.";
   if (settings.pilotTenantCount === 0) return "PILOT_TENANT_ALLOWLIST is empty.";
@@ -49,11 +53,13 @@ export function buildServer(service: VerificationService): Express {
       access: config.allowPublic ? "public" : "pilot_allowlist",
       queue: service.status(),
       raw_content_persistence: false,
+      verifier_backend: config.verifierBackend,
     });
   });
 
   app.get("/ready", async (_request, response) => {
     const readinessProblem = pilotReadinessProblem({
+      backend: config.verifierBackend,
       anthropicConfigured: config.anthropicConfigured,
       allowPublic: config.allowPublic,
       maxConcurrency: config.maxConcurrency,
@@ -68,10 +74,16 @@ export function buildServer(service: VerificationService): Express {
       const ready = await service.ready();
       sendJson(response, ready ? 200 : 503, {
         status: ready ? "ready" : "not_ready",
-        anthropic_credential_canary: "not_performed",
+        verifier_backend: config.verifierBackend,
+        external_model_required: config.verifierBackend === "anthropic",
       });
     } catch {
-      sendJson(response, 503, { status: "not_ready", reason: "GlassBox MCP is unavailable." });
+      sendJson(response, 503, {
+        status: "not_ready",
+        reason: config.verifierBackend === "anthropic"
+          ? "GlassBox MCP is unavailable."
+          : "GlassBox Lite is unavailable.",
+      });
     }
   });
 

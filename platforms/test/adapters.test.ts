@@ -5,7 +5,8 @@ import type { AddressInfo } from "node:net";
 import type { TrustCard, Verifier } from "../src/types.js";
 
 process.env.PLATFORM_SHARED_SECRET = "api-test-secret";
-process.env.PLATFORM_ALLOW_PUBLIC = "true";
+process.env.PLATFORM_ALLOW_PUBLIC = "false";
+process.env.PILOT_TENANT_ALLOWLIST = "api";
 process.env.DISCORD_APPLICATION_ID = "123";
 process.env.SLACK_SIGNING_SECRET = "slack-test-secret";
 process.env.SLACK_BOT_TOKEN = "slack-test-token";
@@ -52,18 +53,24 @@ test("health reports only fully configured adapters", async () => {
   };
   assert.equal(response.status, 200);
   assert.equal(body.raw_content_persistence, false);
-  assert.equal(body.access, "public");
+  assert.equal(body.access, "pilot_allowlist");
   assert.deepEqual(body.platforms.sort(), ["api", "discord", "github", "slack", "telegram"].sort());
 });
 
-test("readiness fails closed without an Anthropic API key", async () => {
+test("Lite readiness succeeds without a paid-model API key", async () => {
   const response = await fetch(`${base}/ready`);
-  assert.equal(response.status, 503);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    status: "ready",
+    verifier_backend: "lite",
+    external_model_required: false,
+  });
 });
 
 test("pilot readiness rejects public or concurrent deployment settings", () => {
   const baseSettings = {
-    anthropicConfigured: true,
+    backend: "lite" as const,
+    anthropicConfigured: false,
     allowPublic: false,
     maxConcurrency: 1,
     pilotTenantCount: 1,
@@ -72,6 +79,10 @@ test("pilot readiness rejects public or concurrent deployment settings", () => {
   assert.equal(pilotReadinessProblem(baseSettings), undefined);
   assert.match(pilotReadinessProblem({ ...baseSettings, allowPublic: true }) ?? "", /Public access/);
   assert.match(pilotReadinessProblem({ ...baseSettings, maxConcurrency: 2 }) ?? "", /MAX_CONCURRENCY=1/);
+  assert.match(pilotReadinessProblem({
+    ...baseSettings,
+    backend: "anthropic",
+  }) ?? "", /ANTHROPIC_API_KEY/);
 });
 
 test("universal API requires its bearer secret", async () => {

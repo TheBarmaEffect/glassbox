@@ -31,7 +31,7 @@ test("caps intents and removes empty entries", () => {
   assert.equal(input.intents?.[0], "one");
 });
 
-test("rejects oversized intent payloads before queue or spend accounting", () => {
+test("rejects oversized intent payloads before queue or usage accounting", () => {
   assert.throws(() => normalizeInput({
     question: "q",
     answer: "a",

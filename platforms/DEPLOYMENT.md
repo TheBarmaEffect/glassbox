@@ -5,17 +5,17 @@
 Use the included Dockerfile on Render, Railway, Fly.io, Cloud Run, ECS, or another service that supports a long-running Node 20 container. A Render Blueprint is included in `render.yaml`.
 The Blueprint pins this pilot to one instance and uses `/ready` as its traffic health check.
 
-Required for every live audit:
+Required for the default zero-cost deployment:
 
 ```text
-ANTHROPIC_API_KEY
+GLASSBOX_BACKEND=lite
 PLATFORM_SHARED_SECRET
 PUBLIC_BASE_URL=https://your-domain.example
 ```
 
 For the first deployment, keep `PLATFORM_ALLOW_PUBLIC=false` and set exact tenant keys such as `api,discord:123456789,slack:t123,telegram:-100123,github:owner/repo,reddit:testsub` in `PILOT_TENANT_ALLOWLIST`. The service fails closed for tenants not listed.
 
-Set a minimum of one warm instance. GlassBox v1 makes several sequential model calls, so a request/response function with a short execution limit is a poor fit. Start with concurrency `1`, a 10-minute job deadline, a per-user limit of `10` audits per 10 minutes, and a global ceiling of `100` accepted audits/day. Keep `PLATFORM_ALLOW_PUBLIC=false` and list exact pilot tenant keys in `PILOT_TENANT_ALLOWLIST`. Raise access, concurrency, or spend only after observing Anthropic latency and cost.
+Start on one free instance with concurrency `1`, a per-user limit of `10` audits per 10 minutes, and a global ceiling of `100` accepted audits/day. A free host may sleep while idle, so the first request can be slower. Keep `PLATFORM_ALLOW_PUBLIC=false` and list exact pilot tenant keys in `PILOT_TENANT_ALLOWLIST`. Raise access or concurrency only after observing CPU, memory, latency, and abuse patterns.
 
 Before platform setup:
 
@@ -23,9 +23,6 @@ Before platform setup:
 npm test
 npm run typecheck
 npm run build
-npm run smoke:mcp
-# After setting ANTHROPIC_API_KEY; this makes a small live API canary call:
-npm run smoke:verify
 docker build -t glassbox-platform-gateway .
 ```
 
@@ -38,13 +35,13 @@ curl https://YOUR_DOMAIN/privacy
 curl https://YOUR_DOMAIN/terms
 ```
 
-`/ready` verifies that the key is present and the MCP tool is registered; it deliberately does not spend API tokens. Run `npm run smoke:verify` once in the deployment environment to catch a malformed, expired, or revoked Anthropic credential before opening the pilot.
+`/ready` verifies the selected backend. Lite needs no external credential and makes no API call. If an operator explicitly selects `GLASSBOX_BACKEND=anthropic`, `/ready` also requires an Anthropic key and the MCP tool; `npm run smoke:verify` is then the optional live credential canary and may consume provider tokens.
 
 ## 2. Telegram — public beta first
 
 1. Create the bot with BotFather and copy its token to `TELEGRAM_BOT_TOKEN`.
 2. Generate a random URL-safe `TELEGRAM_WEBHOOK_SECRET`.
-3. Set `PUBLIC_BASE_URL`. Before opening its listening socket, the gateway automatically calls Telegram `setWebhook` for `${PUBLIC_BASE_URL}/telegram/webhook` with the configured secret and `allowed_updates=["message"]`. Startup fails with a sanitized error if registration fails; tokens and webhook secrets are never logged. `npm run set-webhook:telegram` remains available as an optional manual check.
+3. Set `PUBLIC_BASE_URL`. Before opening its listening socket, the gateway automatically calls Telegram `setWebhook` for `${PUBLIC_BASE_URL}/telegram/webhook` with the configured secret and `allowed_updates=["message"]`. If registration fails, the Telegram adapter fails closed while the core gateway continues; tokens and webhook secrets are never logged. `npm run set-webhook:telegram` remains available as an optional manual check.
 4. Set BotFather commands: `start - Privacy and consent information`, `privacy - Privacy information`, and `glassbox - Audit a replied-to AI answer`.
 5. Add `https://YOUR_DOMAIN/privacy` as the bot privacy-policy link in BotFather.
 6. Keep group privacy mode enabled. The bot only needs commands and replied-to messages.
@@ -55,7 +52,7 @@ Usage:
 /glassbox --consent Why does ice float? || Ice floats because it is less dense than water.
 ```
 
-Or reply to an answer with `/glassbox --consent <original question>`. The explicit flag confirms per-audit consent to Anthropic processing.
+Or reply to an answer with `/glassbox --consent <original question>`. The explicit flag confirms per-audit processing of the selected text. The default Lite backend keeps that processing inside the gateway process.
 
 ## 3. Discord — private/user-install beta
 
@@ -109,11 +106,11 @@ This is a single-workspace pilot configuration. Public multi-workspace distribut
 
 ## 6. Reddit — allowlisted classic OAuth pilot
 
-Reddit's required long-term route is Devvit. Request app-specific HTTP Fetch approval for the exact hosted GlassBox API hostname; custom API/service domains are reviewable and domain review commonly takes 1–2 business days. The Devvit submission must include its README, privacy policy, terms, complete data-flow description, and the Anthropic subprocess. Public app review commonly takes about one week and every fetch is limited to 30 seconds. Because the current synchronous GlassBox v1 path can take longer, Reddit remains no-go until warm production measurements stay below that limit or Reddit approves an asynchronous architecture.
+Reddit's required long-term route is Devvit. Request app-specific HTTP Fetch approval for the exact hosted GlassBox API hostname. The submission must include its README, privacy policy, terms, and complete data-flow description. The default verifier is deterministic and makes no downstream model call. Confirm the current Devvit review and execution limits before submission.
 
 For the short-term bot pilot:
 
-1. Obtain written Reddit Data API approval covering user-invoked inference and third-party Anthropic processing, then register the script app by Reddit's announced September 30, 2026 API-app registration date. Reddit has said this is not the API shutdown/porting deadline; that date will be announced later.
+1. Obtain written Reddit Data API approval covering this user-invoked audit flow before registering and enabling a classic script app.
 2. Only after that approval, set `REDDIT_DATA_API_APPROVED=true`. The worker remains disabled and absent from `/health` while this flag is false.
 3. Create a dedicated bot account and set `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USERNAME`, and `REDDIT_PASSWORD`.
 4. Use a descriptive, unique `REDDIT_USER_AGENT`.
@@ -140,11 +137,11 @@ Do not place the shared secret in a browser or mobile client. Give each new serv
 
 ## Production gates
 
-- Replace in-memory rate, spend, delivery, and idempotency state with Redis before public access or multiple gateway replicas. The included controls are intentionally single-instance pilot controls.
+- Replace in-memory rate, volume, delivery, and idempotency state with Redis before public access or multiple gateway replicas. The included controls are intentionally single-instance pilot controls.
 - Add OAuth and encrypted tenant-token storage before Slack public distribution.
-- Add per-tenant budgets and Anthropic cost alerts.
+- Add per-tenant usage limits; add provider cost alerts only if a paid backend is explicitly enabled later.
 - Add trace export with an explicit TTL/deletion control only if users request retention.
 - Run prompt-injection and unsafe-output tests against the Trust Card pipeline.
 - Obtain written marketplace/platform policy clearance where required.
-- Confirm the Anthropic API contract and account controls prohibit model training on submitted platform content and satisfy each platform's service-provider restrictions.
+- If a third-party verifier is enabled later, review its API contract, data controls, retention, and each platform's service-provider restrictions before use.
 - Keep analysis opt-in and never use a Trust Card as an automatic moderation or employment decision.

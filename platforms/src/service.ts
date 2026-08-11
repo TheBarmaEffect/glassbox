@@ -79,7 +79,7 @@ export class VerificationService {
     }
     this.resetDailyCounter();
     if (this.dailyCount >= this.dailyRequestLimit) {
-      return Promise.reject(new GlobalLimitError("The daily GlassBox pilot budget has been reached."));
+      return Promise.reject(new GlobalLimitError("The daily GlassBox pilot request limit has been reached."));
     }
     const estimatedCompletionMs = Math.ceil(
       (this.active + this.queue.length + 1) / this.maxConcurrency,

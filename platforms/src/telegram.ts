@@ -95,7 +95,7 @@ function telegramInput(message: TelegramMessage): VerificationInput {
   const raw = (message.text ?? "").replace(/^\/(?:glassbox|analyze)(?:@[\w_]+)?\s*/i, "").trim();
   const consent = extractTelegramConsent(raw);
   if (!consent.consented) {
-    throw new InputError("Consent required: add --consent after /glassbox to confirm the selected text may be sent to Anthropic for this audit.");
+    throw new InputError("Consent required: add --consent after /glassbox to confirm the selected text may be processed for this audit.");
   }
   const commandText = consent.text;
   const repliedText = message.reply_to_message?.text ?? message.reply_to_message?.caption;
@@ -119,7 +119,9 @@ export function consentNotice(): string {
   return [
     "GlassBox audits reasoning in text you explicitly submit.",
     "",
-    "Each audit sends the selected question/answer to Anthropic using the GlassBox operator's API account. The gateway does not persist the raw text.",
+    config.verifierBackend === "anthropic"
+      ? "This deployment explicitly uses Anthropic for audits. The gateway does not persist the raw text."
+      : "This deployment uses the deterministic GlassBox Lite engine. It makes no paid model call, does not browse the web, and the gateway does not persist the raw text.",
     "",
     "To consent for one audit, reply to an answer with:",
     "/glassbox --consent <original question>",

@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { selectGlassboxBackend } from "./verifier.js";
 
 const numberFromEnv = (name: string, fallback: number): number => {
   const parsed = Number.parseInt(process.env[name] ?? "", 10);
@@ -6,6 +7,7 @@ const numberFromEnv = (name: string, fallback: number): number => {
 };
 
 export const config = {
+  verifierBackend: selectGlassboxBackend(process.env),
   anthropicConfigured: Boolean(process.env.ANTHROPIC_API_KEY),
   port: numberFromEnv("PORT", 8080),
   trustProxyHops: numberFromEnv("TRUST_PROXY_HOPS", 1),
