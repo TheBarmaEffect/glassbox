@@ -16,12 +16,13 @@ try {
     webhookSecret: config.telegram.webhookSecret,
     publicBaseUrl: config.publicBaseUrl,
   });
-} catch {
+} catch (error) {
   // A platform-specific credential must not take the zero-cost core service down.
   // Clear both values so the adapter also fails closed for inbound requests.
   config.telegram.botToken = undefined;
   config.telegram.webhookSecret = undefined;
-  console.warn("Telegram adapter disabled because webhook registration failed.");
+  const reason = error instanceof Error ? error.message : "Unknown registration failure.";
+  console.warn(`Telegram adapter disabled: ${reason}`);
 }
 
 const server = app.listen(config.port, "0.0.0.0", () => {
