@@ -33,7 +33,7 @@ export function telegramRouter(service: VerificationService): Router {
     if (message && /^\/(?:start|privacy)(?:@[\w_]+)?\b/i.test(message.text ?? "")) {
       void telegramApi("sendMessage", {
         chat_id: message.chat.id,
-        text: consentNotice(),
+        text: consentNotice(message.chat.id),
         link_preview_options: disabledLinkPreview(),
       }).catch(() => undefined);
       return;
@@ -115,7 +115,7 @@ export function extractTelegramConsent(rawText: string): { consented: boolean; t
   return { consented: true, text: rawText.slice(prefix[0].length).trim() };
 }
 
-export function consentNotice(): string {
+export function consentNotice(chatId?: number): string {
   return [
     "GlassBox audits reasoning in text you explicitly submit.",
     "",
@@ -125,6 +125,9 @@ export function consentNotice(): string {
     "",
     "To consent for one audit, reply to an answer with:",
     "/glassbox --consent <original question>",
+    ...(chatId === undefined || config.allowPublic
+      ? []
+      : ["", `Pilot access key: telegram:${chatId}`]),
     "",
     `Privacy: ${config.publicBaseUrl ? `${config.publicBaseUrl}/privacy` : "/privacy"}`,
   ].join("\n");

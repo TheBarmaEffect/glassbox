@@ -91,7 +91,7 @@ function githubInput(payload: GitHubPayload, command: string): VerificationInput
 }
 
 async function postGitHubComment(url: string, installationId: number | undefined, body: string): Promise<void> {
-  if (!url.startsWith("https://api.github.com/")) throw new Error("Invalid GitHub comments URL.");
+  if (!isGitHubCommentsUrl(url)) throw new Error("Invalid GitHub comments URL.");
   const token = await githubToken(installationId);
   const response = await fetch(url, {
     method: "POST",
@@ -104,6 +104,22 @@ async function postGitHubComment(url: string, installationId: number | undefined
     body: JSON.stringify({ body }),
   });
   if (!response.ok) throw new Error(`GitHub comment failed (${response.status}).`);
+}
+
+export function isGitHubCommentsUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" &&
+      url.hostname === "api.github.com" &&
+      url.port === "" &&
+      url.username === "" &&
+      url.password === "" &&
+      /^\/repos\/[^/]+\/[^/]+\/issues\/\d+\/comments$/.test(url.pathname) &&
+      url.search === "" &&
+      url.hash === "";
+  } catch {
+    return false;
+  }
 }
 
 async function githubToken(installationId: number | undefined): Promise<string> {

@@ -2,6 +2,7 @@ services:
   - type: web
     name: glassbox-platform-gateway
     runtime: docker
+    plan: free
     rootDir: platforms
     dockerfilePath: ./Dockerfile
     dockerContext: .

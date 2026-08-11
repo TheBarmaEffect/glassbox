@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { selectGitHubAuthMode } from "../src/github.js";
+import { isGitHubCommentsUrl, selectGitHubAuthMode } from "../src/github.js";
 import { deliverShortcutResult, extractSlackVisibility } from "../src/slack.js";
 import {
   consentNotice,
@@ -61,6 +61,7 @@ test("Telegram accepts consent only as the leading per-audit flag", () => {
   assert.match(consentNotice(), /no paid model call/);
   assert.match(consentNotice(), /one audit/);
   assert.match(consentNotice(), /\/privacy/);
+  assert.match(consentNotice(-100123), /Pilot access key: telegram:-100123/);
 });
 
 test("Telegram requests use current reply and link-preview fields", () => {
@@ -76,4 +77,11 @@ test("GitHub App credentials take precedence over a fallback token", () => {
   assert.equal(selectGitHubAuthMode({ token: "pat" }), "token");
   assert.equal(selectGitHubAuthMode({ appId: "1", token: "pat" }), "token");
   assert.equal(selectGitHubAuthMode({}), "none");
+});
+
+test("GitHub comments URL is restricted to the canonical API endpoint", () => {
+  assert.equal(isGitHubCommentsUrl("https://api.github.com/repos/openai/example/issues/42/comments"), true);
+  assert.equal(isGitHubCommentsUrl("https://api.github.com.evil.test/repos/openai/example/issues/42/comments"), false);
+  assert.equal(isGitHubCommentsUrl("https://api.github.com/repos/openai/example/issues/42/comments?redirect=1"), false);
+  assert.equal(isGitHubCommentsUrl("https://api.github.com/repos/openai/example/issues/not-a-number/comments"), false);
 });
