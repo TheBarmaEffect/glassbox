@@ -18,7 +18,7 @@ The hostname also serves the public privacy notice and terms. The gateway does n
 - `permissions.http.domains`: call the exact GlassBox gateway hostname over HTTPS.
 - Global secret: keep the gateway bearer credential encrypted and developer-managed.
 
-No classic Data API, Reddit OAuth client, user-action permission, posting/commenting, moderation write, triggers, scheduler, Redis, payments, media, realtime, or external endpoint access is requested.
+No classic Data API, Reddit OAuth client, user-action permission, posting/commenting, moderation write, triggers, scheduler, app-data Redis calls, payments, media, realtime, or external endpoint access is requested. Devvit automatically enables its Redis-backed form-submit grant mechanism for menu forms; this package never writes selected content or Trust Cards to Redis.
 
 ## Safety and privacy test evidence expected before submission
 
@@ -28,7 +28,7 @@ No classic Data API, Reddit OAuth client, user-action permission, posting/commen
 - Output excludes claim/evidence excerpts and neutralizes mention/link-like dynamic text.
 - Cross-install content is rejected by Reddit's scoped API/context.
 - Gateway 401/403/429/503/504 and the 25-second timeout return generic, actionable UI messages.
-- No content or result survives after the transient form closes.
+- The app performs no explicit persistence; selected content and results are absent from app-owned storage after the transient form closes.
 
 ## Reviewer links
 
@@ -36,4 +36,3 @@ No classic Data API, Reddit OAuth client, user-action permission, posting/commen
 - Terms: <https://glassbox-platform-gateway.onrender.com/terms>
 - Gateway readiness: <https://glassbox-platform-gateway.onrender.com/ready>
 - Support: <mailto:thebarmaeffect@gmail.com>
-

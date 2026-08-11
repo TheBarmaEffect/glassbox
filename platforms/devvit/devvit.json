@@ -10,7 +10,10 @@
       {
         "label": "Audit with GlassBox",
         "description": "Privately inspect the selected post or comment with the deterministic GlassBox Lite gateway.",
-        "location": ["post", "comment"],
+        "location": [
+          "post",
+          "comment"
+        ],
         "forUserType": "user",
         "endpoint": "/internal/menu/audit"
       }
@@ -32,7 +35,9 @@
   "permissions": {
     "http": {
       "enable": true,
-      "domains": ["glassbox-platform-gateway.onrender.com"]
+      "domains": [
+        "glassbox-platform-gateway.onrender.com"
+      ]
     },
     "reddit": true
   },
@@ -40,5 +45,12 @@
     "build": "vite build",
     "dev": "vite build --watch"
   },
-  "sourceIgnores": ["coverage/", "fixtures/", "*.log"]
+  "sourceIgnores": [
+    "coverage/",
+    "fixtures/",
+    "*.log"
+  ],
+  "dev": {
+    "subreddit": "glassbox_audit_dev"
+  }
 }

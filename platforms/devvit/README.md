@@ -20,7 +20,7 @@ No background monitoring, comment trigger, subreddit crawl, vote, removal, messa
 - Transport: server-side HTTPS from Reddit's Devvit runtime to `glassbox-platform-gateway.onrender.com`.
 - Gateway processing: the default deterministic GlassBox Lite backend, in process memory only.
 - Gateway retention: no database/file persistence of selected text or Trust Cards. An opaque idempotency event ID may remain in gateway memory for up to 24 hours; rate-control metadata has shorter in-memory TTLs.
-- Devvit retention: none. This package does not enable Redis, write files, post results, or log submitted content/Trust Cards.
+- Devvit app retention: this package never calls Redis for app data, writes files, posts results, or logs submitted content/Trust Cards. Devvit automatically uses its own Redis-backed form-grant plumbing for menu/form security; the app does not write selected text or Trust Cards to it. Reddit controls any platform operational records under its own policies.
 - Third parties: no paid model provider and no downstream model call. Render hosts the gateway; Reddit hosts the Devvit app.
 
 Privacy: <https://glassbox-platform-gateway.onrender.com/privacy>  
@@ -71,11 +71,10 @@ The app requests only:
 - Server-side HTTP Fetch to the exact hostname `glassbox-platform-gateway.onrender.com`.
 - One developer-managed global secret named `glassboxGatewaySecret`.
 
-The HTTP domain request is submitted during playtest/upload. Fetch-enabled apps require Reddit approval, a privacy policy, and terms. Add the live privacy and terms URLs above in the Developer Portal App Details page before publishing. The app does not use classic Reddit OAuth/Data API credentials, user-action permissions, Redis, triggers, scheduler, payments, media, realtime, external endpoints, or LLM capabilities.
+The HTTP domain request is submitted during playtest/upload. Fetch-enabled apps require Reddit approval, a privacy policy, and terms. Add the live privacy and terms URLs above in the Developer Portal App Details page before publishing. The app does not use classic Reddit OAuth/Data API credentials, user-action permissions, app-data Redis calls, triggers, scheduler, payments, media, realtime, external endpoints, or LLM capabilities. Devvit automatically enables its Redis-backed form-submit grant mechanism for menu forms; no application content is written to it by this package.
 
 The Render free service may sleep. Devvit HTTP requests have a 30-second platform timeout; this app aborts the gateway call at 25 seconds and asks the user to retry once if the service is waking.
 
 ## Uninstall and deletion
 
-Uninstalling the app stops the menu action immediately. Because the app stores no content or Trust Cards and publishes no Reddit content, it has no app database records to delete. The gateway likewise does not persist submitted content. Contact support with the app installation and approximate time for an incident inquiry; do not email the confidential content itself.
-
+Uninstalling the app stops the menu action immediately. Because the app code stores no content or Trust Cards and publishes no Reddit content, it has no app-owned database records to delete. The gateway likewise does not persist submitted content. Contact support with the app installation and approximate time for an incident inquiry; do not email the confidential content itself.
