@@ -2,6 +2,8 @@
 
 GlassBox Audit adds an **Audit with GlassBox** action to the three-dot menu on Reddit posts and comments. A redditor explicitly confirms each audit before the selected text is sent over HTTPS to the deployed GlassBox Lite gateway. The app then shows a transient Trust Card inside Reddit; it does not publish a comment, alter the selected content, or retain the text or result.
 
+GlassBox is a product developed under Aura, an unregistered umbrella brand. Aura is not a company or legal entity. Karthik Barma operates the app and gateway as an individual developer. The app charges no fee, accepts no payment, and sells nothing.
+
 GlassBox Lite is deterministic and has no paid model dependency. It checks reasoning structure, unsupported certainty, internal contradictions, citation signals, simple arithmetic, and prompt-injection language. It does not browse the web, authenticate sources, establish factual truth, make moderation decisions, or provide professional advice.
 
 ## User flow

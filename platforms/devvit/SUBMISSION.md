@@ -1,5 +1,7 @@
 # Reddit App Review submission notes
 
+**Developer/operator:** Karthik Barma, individual developer. GlassBox is a product under Aura, an unregistered umbrella brand; Aura is not a company or legal entity. `TheBarmaEffect` is only the existing repository/contact account name. The app charges no fee, accepts no payment, and sells nothing.
+
 ## Short description
 
 GlassBox Audit is a user-invoked reasoning aid for Reddit posts and comments. It sends only the selected content to a deterministic, zero-cost reasoning checker and privately displays a transient Trust Card. It never monitors communities, posts comments, makes moderation decisions, or uses a paid AI/LLM API.
@@ -34,6 +36,8 @@ No classic Data API, Reddit OAuth client, user-action permission, posting/commen
 
 ## Reviewer links
 
+- Developer identity: Karthik Barma (individual developer; no registered company or legal entity)
+- Product brand: GlassBox under Aura (unregistered umbrella brand only)
 - Privacy: <https://glassbox-platform-gateway.onrender.com/privacy>
 - Terms: <https://glassbox-platform-gateway.onrender.com/terms>
 - Gateway readiness: <https://glassbox-platform-gateway.onrender.com/ready>

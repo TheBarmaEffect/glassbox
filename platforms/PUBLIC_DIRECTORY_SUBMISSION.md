@@ -1,12 +1,15 @@
 # GlassBox public directory submission
 
-This is the copy-ready submission record for the OpenAI Plugins Directory and the Anthropic Connectors Directory. Confirm the publisher identity and portal-only account attestations immediately before submission.
+This is the identity-safe submission record for the OpenAI Plugins Directory and the Anthropic Connectors Directory. Confirm the individual developer identity and portal-only account attestations immediately before submission.
 
 ## Shared public listing
 
 - **Name:** GlassBox
 - **Proposed permanent Claude slug:** `glassbox`
-- **Publisher/company:** TheBarmaEffect
+- **Publisher/developer:** Karthik Barma, individual developer
+- **Developer identity status:** Submit only after the applicable portal recognizes Karthik Barma's verified individual identity.
+- **Company/legal entity:** None. No company or other legal entity has been registered for GlassBox or Aura.
+- **Brand relationship:** GlassBox is a product under Aura. Aura is an unregistered umbrella brand only; it is not a company, legal entity, or directory publisher identity.
 - **Tagline:** Verify AI answers before you trust them.
 - **Short description:** Audit AI answers for contradictions, arithmetic errors, unsupported certainty, citation transparency, and prompt-injection risk.
 - **Website:** https://glassbox-platform-gateway.onrender.com/
@@ -21,7 +24,7 @@ This is the copy-ready submission record for the OpenAI Plugins Directory and th
 - **Category:** Developer Tools; Productivity; Security
 - **Country availability:** Worldwide wherever the applicable directory and GlassBox are legally available; exclude every country or region the platform marks unsupported or sanctioned.
 - **Read/write declaration:** Read-only computation. GlassBox processes only the question, answer, and optional rules explicitly submitted for one audit. It does not write to an external system or persistent store.
-- **Underlying API:** First-party. TheBarmaEffect owns and operates the GlassBox Lite service and MCP endpoint; the default verifier does not call another model or data API.
+- **Underlying API:** First-party. Karthik Barma operates the GlassBox Lite service and MCP endpoint as an individual developer under the Aura brand; the default verifier does not call another model or data API.
 - **External account or plan prerequisite:** None for GlassBox. Users only need a compatible ChatGPT, Claude, or MCP-client plan that permits directory or custom connectors.
 - **Personal health data:** No. GlassBox does not request or query health records, infer health profiles, or provide medical decisions. Users are instructed not to submit confidential or regulated personal data.
 - **Sponsored content or advertising:** None.
@@ -31,11 +34,11 @@ This is the copy-ready submission record for the OpenAI Plugins Directory and th
 - **Primary icon:** `public/assets/glassbox-icon.png`
 - **OpenAI upload icon:** `public/assets/glassbox-icon-chatgpt.png`
 
-The publisher/company value above must exactly match the verified identity selected in each portal. Change the listing rather than claiming an unverified company identity if the account is verified under a different name.
+`TheBarmaEffect` in repository URLs and the support address is an account/contact identifier, not a company or legal entity. Never enter Aura or TheBarmaEffect in a company, legal-entity, or verified-business field. Directory publisher fields must use the verified individual identity Karthik Barma; if that identity is still pending or a portal requires a registered business, stop and resolve the account requirement rather than misstate the legal status.
 
 ## Long description
 
-GlassBox gives ChatGPT and Claude a transparent, deterministic second pass over an AI answer. It extracts a claim count, recomputes allowlisted arithmetic, checks direct contradictions, flags unsupported certainty and citation gaps, and detects prompt-injection language as inert content. The public result reports a verdict, score, fixed-category findings, probe outcomes, and explicit caveats without echoing the submitted question or answer or exposing internal audit metadata. GlassBox Lite uses no paid model API, performs no web fact-checking, and does not persist raw submitted content.
+GlassBox, a product developed under the unregistered Aura umbrella brand, gives ChatGPT and Claude a transparent, deterministic second pass over an AI answer. It extracts a claim count, recomputes allowlisted arithmetic, checks direct contradictions, flags unsupported certainty and citation gaps, and detects prompt-injection language as inert content. The public result reports a verdict, score, fixed-category findings, probe outcomes, and explicit caveats without echoing the submitted question or answer or exposing internal audit metadata. GlassBox Lite uses no paid model API, performs no web fact-checking, and does not persist raw submitted content. Aura is a brand name, not a company or legal entity.
 
 ## Exact public MCP result contract
 
@@ -161,7 +164,7 @@ The response never returns the submitted `question` or `answer`, claim excerpts,
 ## Claude compliance declarations
 
 - [x] The connector complies with the Anthropic Software Directory Policy and Directory Terms, subject to the submitting owner accepting the current portal versions.
-- [x] The connector calls only the first-party GlassBox service operated by the publisher.
+- [x] The connector calls only the first-party GlassBox service operated by Karthik Barma as an individual developer.
 - [x] The connector does not transfer money, cryptocurrency, or other financial assets.
 - [x] The connector does not generate standalone AI image, video, or audio media.
 - [x] Tool metadata contains no instruction that overrides Claude, coerces unrelated tool use, or fetches behavioral instructions. Prompt-injection-like answer content is treated as inert data.
@@ -179,7 +182,7 @@ Initial public submission of the authless, read-only GlassBox Lite MCP verifier.
 ### OpenAI
 
 - [ ] Use an OpenAI project with global rather than EU data residency.
-- [ ] Select a verified developer or business identity that exactly matches the publisher/company shown above.
+- [ ] Complete and select Karthik Barma's verified **individual** developer identity. Do not select or claim a business identity for Aura.
 - [ ] Submit as an organization owner or a role with Apps Management Write (`api.apps.write`); retain read access to review status.
 - [ ] Add the portal challenge token as `OPENAI_APPS_CHALLENGE_TOKEN`, deploy it, and confirm the well-known endpoint returns only the exact token.
 - [ ] Deploy this MCP schema and privacy-minimized result, then run **Scan Tools** again.
@@ -192,7 +195,7 @@ Initial public submission of the authless, read-only GlassBox Lite MCP verifier.
 
 - [ ] Submit from a Team or Enterprise organization as Owner/Primary Owner, or with an eligible delegated Enterprise Directory/Libraries role.
 - [ ] Confirm the permanent `glassbox` slug is available before saving it.
-- [ ] Ensure the publisher/company exactly matches the submitting organization.
+- [ ] Identify the publisher as Karthik Barma, individual developer. If a company field is optional, use `None`; if it is mandatory and accepts an individual, use `Karthik Barma (individual developer)`. Never identify Aura as a registered company.
 - [ ] Accept the current Directory Terms and Policy in the portal.
 - [ ] Sync and inspect all tools; resolve every title and annotation warning.
 - [ ] Test every positive and negative record using MCP Inspector and a production Claude custom connector.

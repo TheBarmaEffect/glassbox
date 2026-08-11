@@ -12,6 +12,8 @@ One deployable Node 20 service that brings the published GlassBox v1 Trust Card 
 
 The gateway uses the deterministic GlassBox Lite verifier by default and produces compact platform-native Trust Cards without a paid model API, API key, or network lookup. It does not monitor conversations or persist raw question/answer content. The published `@glassbox-framework/mcp@1.0.3`/Anthropic verifier remains an explicit opt-in backend for operators who provide their own key.
 
+GlassBox is a product developed under Aura, an unregistered umbrella brand. Aura is not a company or legal entity. The platform service is operated by Karthik Barma as an individual developer, charges no fee, accepts no payment, and sells nothing. `TheBarmaEffect` is retained in repository URLs and the support address as an account/contact identifier, not as a company name.
+
 ## Quick start
 
 ```bash
