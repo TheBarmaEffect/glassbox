@@ -1,4 +1,4 @@
-export type Platform = "api" | "discord" | "slack" | "telegram" | "github" | "reddit";
+export type Platform = "api" | "discord" | "slack" | "telegram" | "github" | "reddit" | "mcp";
 
 export interface VerificationInput {
   question: string;

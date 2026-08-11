@@ -13,7 +13,7 @@ PLATFORM_SHARED_SECRET
 PUBLIC_BASE_URL=https://your-domain.example
 ```
 
-For the first deployment, keep `PLATFORM_ALLOW_PUBLIC=false` and set exact tenant keys such as `api,discord:123456789,slack:t123,telegram:-100123,github:owner/repo,reddit:testsub` in `PILOT_TENANT_ALLOWLIST`. The service fails closed for tenants not listed.
+For the first deployment, keep `PLATFORM_ALLOW_PUBLIC=false` and set exact tenant keys such as `api,mcp:public,discord:123456789,slack:t123,telegram:-100123,github:owner/repo,reddit:testsub` in `PILOT_TENANT_ALLOWLIST`. The service fails closed for tenants not listed. `mcp:public` opens only the read-only, rate-limited remote MCP surface.
 
 Start on one free instance with concurrency `1`, a per-user limit of `10` audits per 10 minutes, and a global ceiling of `100` accepted audits/day. A free host may sleep while idle, so the first request can be slower. Keep `PLATFORM_ALLOW_PUBLIC=false` and list exact pilot tenant keys in `PILOT_TENANT_ALLOWLIST`. Raise access or concurrency only after observing CPU, memory, latency, and abuse patterns.
 
@@ -37,7 +37,34 @@ curl https://YOUR_DOMAIN/terms
 
 `/ready` verifies the selected backend. Lite needs no external credential and makes no API call. If an operator explicitly selects `GLASSBOX_BACKEND=anthropic`, `/ready` also requires an Anthropic key and the MCP tool; `npm run smoke:verify` is then the optional live credential canary and may consume provider tokens.
 
-## 2. Telegram — public beta first
+## 2. ChatGPT and Claude — public remote MCP
+
+The gateway exposes a stateless MCP Streamable HTTP endpoint at:
+
+```text
+https://YOUR_DOMAIN/mcp
+```
+
+Add `mcp:public` to `PILOT_TENANT_ALLOWLIST`. Keep `PLATFORM_ALLOW_PUBLIC=false`; the fixed MCP tenant key makes this read-only tool publicly usable without opening Discord, Slack, Telegram, GitHub, Reddit, or the bearer-protected API.
+
+The endpoint publishes `glassbox_verify_answer` with read-only, non-destructive, idempotent, closed-world annotations. It uses GlassBox Lite and therefore requires no Anthropic or OpenAI API key.
+
+ChatGPT setup:
+
+1. Open **Settings → Security and login** and enable Developer mode.
+2. Open **Plugins**, select **+**, enter a name and description, and choose the public connection method.
+3. Enter `https://YOUR_DOMAIN/mcp`, create the connection, and review the discovered tool.
+
+Claude setup:
+
+1. Open **Customize → Connectors**.
+2. Select **+ → Add custom connector**.
+3. Enter the same `/mcp` URL and leave optional OAuth fields empty.
+4. Add the connector and enable it in a conversation.
+
+Run a representative canary in each client: ask it to audit `17 * 6 = 112` and require the returned verdict, arithmetic finding, ECS, and audit reference.
+
+## 3. Telegram — public beta first
 
 1. Create the bot with BotFather and copy its token to `TELEGRAM_BOT_TOKEN`.
 2. Generate a random URL-safe `TELEGRAM_WEBHOOK_SECRET`.
@@ -54,7 +81,7 @@ Usage:
 
 Or reply to an answer with `/glassbox --consent <original question>`. The explicit flag confirms per-audit processing of the selected text. The default Lite backend keeps that processing inside the gateway process.
 
-## 3. Discord — private/user-install beta
+## 4. Discord — private/user-install beta
 
 1. Create a Discord application.
 2. Set its Interactions Endpoint URL to `https://YOUR_DOMAIN/discord/interactions`.
@@ -67,7 +94,7 @@ Or reply to an answer with `/glassbox --consent <original question>`. The explic
 This adapter uses outgoing HTTPS interactions and does not require a Gateway connection or privileged Message Content intent. Results are ephemeral unless the requester chooses `public:true`.
 The adapter enforces a 14-minute delivery deadline, leaving one minute before Discord invalidates the interaction token. Keep the generic job deadline at or below its 10-minute default for the pilot.
 
-## 4. GitHub — public App
+## 5. GitHub — public App
 
 Create a GitHub App with:
 
@@ -92,7 +119,7 @@ This audits the issue/PR description using its title as context. Explicit conten
 /glassbox question || answer || require cited sources
 ```
 
-## 5. Slack — unlisted pilot
+## 6. Slack — unlisted pilot
 
 1. Replace `YOUR_DOMAIN` in `manifests/slack-app-manifest.yml`.
 2. Create a Slack app from that manifest.
@@ -104,7 +131,7 @@ The shortcut opens a modal so the user sees the selected answer and supplies the
 
 This is a single-workspace pilot configuration. Public multi-workspace distribution additionally requires OAuth state validation, encrypted per-workspace token storage, app uninstall/data deletion handling, public support pages, and Slack review. Before Marketplace submission, reach Slack's current eligibility threshold of at least 5 active workspaces and 10 weekly active users; allow up to 10 weeks for review. Because GlassBox generates per-message insights, obtain written policy pre-clearance before treating Marketplace approval as a launch path. Do not make Marketplace approval a launch blocker.
 
-## 6. Reddit — allowlisted classic OAuth pilot
+## 7. Reddit — allowlisted classic OAuth pilot
 
 Reddit's required long-term route is Devvit. Request app-specific HTTP Fetch approval for the exact hosted GlassBox API hostname. The submission must include its README, privacy policy, terms, and complete data-flow description. The default verifier is deterministic and makes no downstream model call. Confirm the current Devvit review and execution limits before submission.
 
@@ -121,7 +148,7 @@ The worker uses Reddit's official unread inbox route, processes only explicit `u
 
 Treat this as a migration bridge. In parallel, request Devvit approval for the exact gateway domain and build the post/comment menu action after that external architecture is accepted. Any monetized or commercial use needs the applicable Reddit agreement before launch.
 
-## 7. Authenticated universal API
+## 8. Authenticated universal API
 
 Future Mattermost, Teams, Discourse, or custom integrations can call:
 

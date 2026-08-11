@@ -7,6 +7,7 @@ One deployable Node 20 service that brings the published GlassBox v1 Trust Card 
 - Telegram: `/glassbox --consent` on a replied-to message or explicit question/answer
 - GitHub: `/glassbox` issue or pull-request comments
 - Reddit: disabled-by-default classic bridge for explicitly approved Data API pilots; Devvit is the primary path
+- ChatGPT and Claude: public MCP Streamable HTTP at `/mcp`
 - Any approved platform: authenticated `POST /api/v1/verify`
 
 The gateway uses the deterministic GlassBox Lite verifier by default and produces compact platform-native Trust Cards without a paid model API, API key, or network lookup. It does not monitor conversations or persist raw question/answer content. The published `@glassbox-framework/mcp@1.0.3`/Anthropic verifier remains an explicit opt-in backend for operators who provide their own key.
@@ -47,7 +48,7 @@ The native reply/context-menu flows pre-fill the answer. Analysis is always user
 ## Architecture
 
 ```text
-Discord / Slack / Telegram / GitHub / Reddit / API
+Discord / Slack / Telegram / GitHub / Reddit / ChatGPT / Claude / API
                          |
          signature verification + input caps
                          |
@@ -63,7 +64,19 @@ Discord / Slack / Telegram / GitHub / Reddit / API
 
 No platform user ID, server/workspace name, subreddit, repository name, or URL is passed to the verifier. With Lite, the explicitly submitted question, answer, and optional intents remain inside this process. With the optional Anthropic backend, only those submitted text fields cross the MCP boundary.
 
-The default is a closed pilot. `PILOT_TENANT_ALLOWLIST` accepts exact lowercase keys: `api`, `discord:<guild-id>` (or `discord:user:<user-id>`), `slack:<team-id>`, `telegram:<chat-id>`, `github:<owner/repo>`, and `reddit:<subreddit>`. Setting `PLATFORM_ALLOW_PUBLIC=true` bypasses this gate and should happen only after platform approval and multi-tenant abuse controls are ready.
+The default is a closed pilot. `PILOT_TENANT_ALLOWLIST` accepts exact lowercase keys: `api`, `mcp:public`, `discord:<guild-id>` (or `discord:user:<user-id>`), `slack:<team-id>`, `telegram:<chat-id>`, `github:<owner/repo>`, and `reddit:<subreddit>`. `mcp:public` deliberately opens only the rate-limited, read-only `/mcp` tool while keeping provider adapters allowlisted. Setting `PLATFORM_ALLOW_PUBLIC=true` bypasses every tenant gate and should happen only after platform approval and multi-tenant abuse controls are ready.
+
+## ChatGPT and Claude MCP
+
+The public zero-cost connector URL is:
+
+```text
+https://YOUR_DOMAIN/mcp
+```
+
+It speaks MCP Streamable HTTP and exposes one read-only tool: `glassbox_verify_answer`. The tool runs the same deterministic Lite verifier as the platform adapters, makes no model-provider API call, and returns the full Trust Card as JSON. Add `mcp:public` to `PILOT_TENANT_ALLOWLIST` before connecting a remote client.
+
+In ChatGPT, enable Developer mode under **Settings → Security and login**, open **Plugins**, select **+**, and enter the `/mcp` URL as a public connection. In Claude, open **Customize → Connectors → + → Add custom connector** and enter the same URL. No OAuth client or model API key is required for this read-only public tool.
 
 ## Platform launch order
 

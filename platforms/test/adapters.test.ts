@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
 import type { AddressInfo } from "node:net";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { TrustCard, Verifier } from "../src/types.js";
 
 process.env.PLATFORM_SHARED_SECRET = "api-test-secret";
 process.env.PLATFORM_ALLOW_PUBLIC = "false";
-process.env.PILOT_TENANT_ALLOWLIST = "api";
+process.env.PILOT_TENANT_ALLOWLIST = "api,mcp:public";
 process.env.DISCORD_APPLICATION_ID = "123";
 process.env.SLACK_SIGNING_SECRET = "slack-test-secret";
 process.env.SLACK_BOT_TOKEN = "slack-test-token";
@@ -54,7 +56,7 @@ test("health reports only fully configured adapters", async () => {
   assert.equal(response.status, 200);
   assert.equal(body.raw_content_persistence, false);
   assert.equal(body.access, "pilot_allowlist");
-  assert.deepEqual(body.platforms.sort(), ["api", "discord", "github", "slack", "telegram"].sort());
+  assert.deepEqual(body.platforms.sort(), ["api", "discord", "github", "mcp", "slack", "telegram"].sort());
 });
 
 test("Lite readiness succeeds without a paid-model API key", async () => {
@@ -104,6 +106,33 @@ test("universal API requires its bearer secret", async () => {
   });
   assert.equal(accepted.status, 200);
   assert.equal((await accepted.json() as TrustCard).verdict, "trust");
+});
+
+test("public Streamable HTTP MCP lists and calls the zero-cost verifier", async () => {
+  const client = new Client({ name: "glassbox-gateway-test", version: "1.0.0" });
+  const transport = new StreamableHTTPClientTransport(new URL(`${base}/mcp`));
+  try {
+    await client.connect(transport);
+    const tools = await client.listTools();
+    const verify = tools.tools.find((tool) => tool.name === "glassbox_verify_answer");
+    assert.ok(verify);
+    assert.equal(verify.annotations?.readOnlyHint, true);
+    assert.equal(verify.annotations?.destructiveHint, false);
+
+    const result = await client.callTool({
+      name: "glassbox_verify_answer",
+      arguments: { question: "q", answer: "a" },
+    });
+    assert.equal(result.isError, undefined);
+    const content = Array.isArray(result.content)
+      ? result.content as Array<{ type: string; text?: string }>
+      : [];
+    const text = content.find((item) => item.type === "text");
+    assert.equal(text?.type, "text");
+    assert.equal(JSON.parse(text?.type === "text" ? text.text ?? "{}" : "{}").verdict, "trust");
+  } finally {
+    await client.close();
+  }
 });
 
 test("Discord accepts a correctly signed ping", async () => {

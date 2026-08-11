@@ -5,6 +5,7 @@ import { config, enabledPlatforms } from "./config.js";
 import { discordRouter } from "./discord.js";
 import { githubRouter } from "./github.js";
 import { sendJson } from "./http.js";
+import { mcpRouter } from "./mcp.js";
 import { slackRouter } from "./slack.js";
 import { VerificationService } from "./service.js";
 import { telegramRouter } from "./telegram.js";
@@ -88,6 +89,7 @@ export function buildServer(service: VerificationService): Express {
   });
 
   app.use(apiRouter(service));
+  app.use(mcpRouter(service));
   app.use(discordRouter(service));
   app.use(slackRouter(service));
   app.use(telegramRouter(service));

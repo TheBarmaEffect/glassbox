@@ -63,7 +63,7 @@ export const config = {
 };
 
 export function enabledPlatforms(): string[] {
-  const enabled: string[] = [];
+  const enabled: string[] = ["mcp"];
   if (config.sharedSecret) enabled.push("api");
   if (config.discord.applicationId && config.discord.publicKey) enabled.push("discord");
   if (config.slack.signingSecret && config.slack.botToken) enabled.push("slack");
