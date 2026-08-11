@@ -72,6 +72,8 @@ async function handleIssueComment(
   } catch (error) {
     if (verificationComplete) service.markDeliveryFailed(eventKey);
     if (error instanceof DuplicateRequestError) return;
+    const reason = error instanceof Error ? error.message : "Unknown GitHub delivery failure.";
+    console.error(`GitHub delivery ${delivery} failed: ${reason}`);
     await postGitHubComment(
       commentsUrl,
       payload.installation?.id,
