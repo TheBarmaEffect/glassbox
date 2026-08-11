@@ -23,6 +23,22 @@ npm install -g @glassbox-framework/mcp # Node / MCP
 brew install thebarmaeffect/glassbox/glassbox-mcp   # macOS
 ```
 
+## Zero-cost public GlassBox Lite
+
+The repository also ships a separate deterministic Lite verifier and cross-platform gateway that require no paid model API:
+
+- [Web app / installable PWA](https://glassbox-platform-gateway.onrender.com/app)
+- [Public remote MCP](https://glassbox-platform-gateway.onrender.com/mcp) for ChatGPT, Claude, and compatible clients
+- [GitHub App](https://github.com/apps/glassbox-by-aura/installations/new)
+- [Discord](https://discord.com/oauth2/authorize?client_id=1536588680813350972)
+- [Telegram](https://t.me/GlassBoxAuditBot)
+- Notion: embed `https://glassbox-platform-gateway.onrender.com/app`
+- Browser, VS Code, and JetBrains packages: [latest GitHub release](https://github.com/TheBarmaEffect/glassbox/releases/latest)
+
+Lite performs bounded structural checks and does not browse or establish factual truth. The original six-tool model-assisted MCP documented below remains a separate surface.
+
+See [PLATFORMS.md](PLATFORMS.md) for the exact live, downloadable, pilot, and external-review status of every integration.
+
 ## What it is
 
 The Glass Box Framework hands an `(question, answer)` pair to a runtime verification pipeline and returns a structured **Trust Card** containing:

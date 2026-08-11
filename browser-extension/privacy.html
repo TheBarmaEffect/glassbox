@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GlassBox Lite extension privacy</title>
+  <link rel="stylesheet" href="audit.css">
+</head>
+<body>
+  <main>
+    <header class="brand"><img src="icons/icon-48.png" width="48" height="48" alt=""><h1>Extension privacy</h1></header>
+    <section class="result">
+      <p><strong>Effective August 11, 2026.</strong></p>
+      <p>GlassBox Lite audits only text that you explicitly paste into the extension or explicitly select before choosing the GlassBox context-menu action. A context-menu selection is held temporarily in browser session memory, consumed once when the audit page opens, and removed before any audit runs.</p>
+      <p>The extension does not inject a content script, monitor pages, read browsing history, collect telemetry, create an account, use cookies, or store submitted questions, answers, requirements, or audit results. It has no API key or embedded secret.</p>
+      <p>Nothing is sent until you press <strong>Run audit</strong>. At that point, the displayed question, answer, and optional requirements are sent over HTTPS to <code>https://glassbox-platform-gateway.onrender.com/mcp</code>. The gateway runs the deterministic GlassBox Lite verifier and returns a privacy-minimized result. Render hosts the gateway.</p>
+      <p>The extension displays verifier strings only as inert text. It does not render returned HTML, create returned links, execute returned instructions, or browse the web. Results are reasoning-audit signals, not fact-checks or professional advice.</p>
+      <p>See the <a href="https://glassbox-platform-gateway.onrender.com/privacy" target="_blank" rel="noreferrer">service privacy notice</a> for gateway retention and contact details. Support and privacy requests: <a href="mailto:thebarmaeffect@gmail.com">thebarmaeffect@gmail.com</a>.</p>
+    </section>
+  </main>
+</body>
+</html>

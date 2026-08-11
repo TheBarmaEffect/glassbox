@@ -9,6 +9,7 @@ One deployable Node 20 service that brings the published GlassBox v1 Trust Card 
 - GitHub Marketplace: isolated free-plan purchase/cancellation webhook and credential-gated Setup OAuth flow
 - Reddit: disabled-by-default classic bridge for explicitly approved Data API pilots; Devvit is the primary path
 - ChatGPT and Claude: public MCP Streamable HTTP at `/mcp`
+- Web browsers and Notion: installable/embeddable zero-secret app at `/app`
 - Any approved platform: authenticated `POST /api/v1/verify`
 
 The gateway uses the deterministic GlassBox Lite verifier by default and produces compact platform-native Trust Cards without a paid model API, API key, or network lookup. It does not monitor conversations or persist raw question/answer content. The published `@glassbox-framework/mcp@1.0.3`/Anthropic verifier remains an explicit opt-in backend for operators who provide their own key.
@@ -81,6 +82,10 @@ It speaks MCP Streamable HTTP and exposes one read-only tool: `glassbox_verify_a
 
 In ChatGPT, enable Developer mode under **Settings → Security and login**, open **Plugins**, select **+**, and enter the `/mcp` URL as a public connection. In Claude, open **Customize → Connectors → + → Add custom connector** and enter the same URL. No OAuth client or model API key is required for this read-only public tool.
 
+## Web app and Notion embed
+
+The public app at `https://YOUR_DOMAIN/app` calls the same privacy-minimized MCP tool directly. It can be installed as a Progressive Web App in supported browsers. In Notion, type `/embed`, select **Embed**, and paste the `/app` URL. The frame cannot read the surrounding Notion page; it receives only the question and answer deliberately pasted into its own form. See [`notion/README.md`](notion/README.md).
+
 ## Platform launch order
 
 1. Telegram public bot and Discord user-install test: fastest feedback and no marketplace dependency.
@@ -97,6 +102,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for exact setup and current review constraint
 - GitHub Marketplace purchase payloads and OAuth tokens are never logged or persisted; the temporary user token is revoked after free-plan verification.
 - Raw prompts and answers are not stored by this service.
 - Completed event IDs are held in memory for up to 24 hours for deduplication; rate counters last 10 minutes.
+- Public MCP/web callers receive separate in-memory rate buckets derived with a keyed one-way digest of the network address; the raw address is not used as a rate-map key.
 - Submitted content and generated Trust Cards remain in memory only while an audit runs and for at most five minutes while delivery is confirmed.
 - External API access requires a bearer secret.
 - Discord, Slack, Telegram, and GitHub requests are authenticated with each platform's signed webhook mechanism.

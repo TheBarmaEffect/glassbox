@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#050814">
+<meta name="description" content="Run a private, deterministic GlassBox Lite reasoning audit from any browser or embedded Notion page.">
+<title>GlassBox Lite — Audit an AI answer</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/glassbox-icon.png">
+<style>
+:root{color-scheme:dark;--bg:#050814;--panel:#0b1124;--panel2:#101a35;--line:#24365f;--text:#f4f7ff;--muted:#aab9d4;--blue:#43c2ff;--violet:#8d6cff;--good:#58dfb0;--warn:#ffd36b;--bad:#ff7096}
+*{box-sizing:border-box}body{min-height:100vh;margin:0;background:radial-gradient(circle at 50% -15%,#173461 0,#070b18 48%,#03050b 100%);color:var(--text);font:15px/1.55 Inter,ui-sans-serif,system-ui,sans-serif}
+main{width:min(920px,100%);margin:auto;padding:28px 18px 56px}.top{display:flex;align-items:center;gap:15px;margin:6px 0 25px}.logo{width:58px;height:58px;filter:drop-shadow(0 12px 24px rgba(20,142,255,.3))}.brand{font-size:26px;font-weight:850;letter-spacing:-.04em}.eyebrow{color:var(--blue);font-size:11px;font-weight:850;letter-spacing:.18em;text-transform:uppercase}
+.panel{border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,rgba(14,25,52,.97),rgba(6,11,25,.98));box-shadow:0 34px 100px rgba(0,70,180,.16);padding:clamp(20px,4vw,36px)}h1{font-size:clamp(30px,7vw,55px);line-height:1.02;letter-spacing:-.055em;margin:4px 0 13px}.lead{max-width:720px;color:var(--muted);font-size:17px;margin:0 0 25px}
+form{display:grid;gap:17px}.field{display:grid;gap:7px}label{font-weight:760}.hint{font-size:12px;color:var(--muted)}textarea,input{width:100%;border:1px solid var(--line);border-radius:14px;background:#050a18;color:var(--text);padding:13px 14px;font:inherit;resize:vertical;outline:none}textarea:focus,input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(67,194,255,.11)}textarea{min-height:108px}.answer{min-height:170px}.actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px}.button{appearance:none;border:0;border-radius:13px;padding:12px 18px;background:linear-gradient(135deg,#1caaff,#7658ff);color:white;font-weight:850;font-size:15px;cursor:pointer}.button:disabled{opacity:.55;cursor:wait}.quiet{color:var(--muted);font-size:13px}
+#result{display:none;margin-top:23px;border:1px solid var(--line);border-radius:19px;background:rgba(4,9,22,.88);padding:20px}#result.visible{display:block}.result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:15px}.verdict{font-size:25px;font-weight:900;letter-spacing:.03em;text-transform:uppercase}.score{font-variant-numeric:tabular-nums;color:var(--muted)}.trust{color:var(--good)}.caution{color:var(--warn)}.reject{color:var(--bad)}h2{font-size:16px;margin:21px 0 8px}.findings{display:grid;gap:9px}.finding{border-left:3px solid var(--bad);background:#100b1a;padding:10px 12px;border-radius:7px;color:#e8ecf8}.caveats{color:var(--muted);padding-left:20px}.error{color:var(--bad)}
+.privacy{margin:19px 3px 0;color:var(--muted);font-size:12px}.privacy a{color:var(--blue)}.links{display:flex;gap:15px;flex-wrap:wrap;margin-top:22px}.links a{color:var(--muted)}
+@media(max-width:560px){main{padding:16px 10px 40px}.panel{border-radius:18px}.result-head{display:block}.score{margin-top:4px}}
+</style>
+</head>
+<body><main>
+<header class="top"><img class="logo" src="/assets/glassbox-icon.png" alt="GlassBox"><div><div class="brand">glassbox</div><div class="eyebrow">Lite reasoning audit</div></div></header>
+<section class="panel">
+<h1>A second look before you trust an AI answer.</h1>
+<p class="lead">Paste only the question and answer you deliberately want checked. GlassBox Lite runs deterministic structural probes—without a paid model API or web lookup.</p>
+<form id="audit-form">
+  <div class="field"><label for="question">Original question</label><textarea id="question" maxlength="6000" required placeholder="What was the AI asked?"></textarea><span class="hint">Maximum 6,000 characters.</span></div>
+  <div class="field"><label for="answer">AI answer</label><textarea class="answer" id="answer" maxlength="12000" required placeholder="Paste the answer you want to audit."></textarea><span class="hint">Maximum 12,000 characters.</span></div>
+  <div class="field"><label for="intents">Optional expectations</label><input id="intents" maxlength="4000" placeholder="Example: require cited sources; show arithmetic"><span class="hint">Separate up to eight expectations with semicolons.</span></div>
+  <div class="actions"><button class="button" id="submit" type="submit">Audit with GlassBox</button><span class="quiet" id="progress" role="status" aria-live="polite"></span></div>
+</form>
+<section id="result" aria-live="polite"></section>
+<p class="privacy">The submitted text is processed transiently by the GlassBox gateway on Render and is not persisted by GlassBox. Platform and infrastructure providers may retain their own logs. This is a structural reasoning audit, not a fact-check or professional advice. <a href="/privacy" target="_blank" rel="noreferrer">Privacy details</a>.</p>
+</section>
+<nav class="links"><a href="/">Platform home</a><a href="/support">Support</a><a href="https://github.com/TheBarmaEffect/glassbox">Source code</a></nav>
+</main>
+<script type="module">
+const form=document.querySelector("#audit-form");
+const submit=document.querySelector("#submit");
+const progress=document.querySelector("#progress");
+const resultBox=document.querySelector("#result");
+
+function addText(parent,tag,text,className){const node=document.createElement(tag);node.textContent=text;if(className)node.className=className;parent.append(node);return node}
+function renderResult(result){resultBox.replaceChildren();resultBox.className="visible";const head=document.createElement("div");head.className="result-head";addText(head,"div",result.verdict,"verdict "+result.verdict);addText(head,"div",`ECS ${Math.round(result.score*1000)/10}% · ${result.claim_count} claims`,"score");resultBox.append(head);addText(resultBox,"p",result.summary);
+if(result.findings?.length){addText(resultBox,"h2","Findings");const list=document.createElement("div");list.className="findings";for(const finding of result.findings){addText(list,"div",`${finding.angle.replaceAll("_"," ")} · ${finding.severity}: ${finding.summary}`,"finding")}resultBox.append(list)}else{addText(resultBox,"p","No deterministic structural findings were returned.","trust")}
+if(result.caveats?.length){addText(resultBox,"h2","Scope caveats");const list=document.createElement("ul");list.className="caveats";for(const caveat of result.caveats)addText(list,"li",caveat);resultBox.append(list)}}
+function renderError(message){resultBox.replaceChildren();resultBox.className="visible";addText(resultBox,"p",message,"error")}
+function parseSse(text){for(const line of text.split(/\r?\n/)){if(!line.startsWith("data:"))continue;const envelope=JSON.parse(line.slice(5).trim());if(envelope.error)throw new Error(envelope.error.message||"GlassBox returned an error.");const value=envelope.result?.structuredContent;if(value)return value;const fallback=envelope.result?.content?.find(item=>item.type==="text")?.text;if(fallback)return JSON.parse(fallback)}throw new Error("GlassBox returned an unreadable response.")}
+
+form.addEventListener("submit",async(event)=>{event.preventDefault();submit.disabled=true;progress.textContent="Running bounded deterministic checks…";resultBox.className="";const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),75000);try{const intents=document.querySelector("#intents").value.split(";").map(value=>value.trim()).filter(Boolean).slice(0,8);const body={jsonrpc:"2.0",id:crypto.randomUUID(),method:"tools/call",params:{name:"glassbox_verify_answer",arguments:{question:document.querySelector("#question").value,answer:document.querySelector("#answer").value,...(intents.length?{intents}:{})}}};const response=await fetch("/mcp",{method:"POST",headers:{accept:"application/json, text/event-stream","content-type":"application/json"},body:JSON.stringify(body),signal:controller.signal});const text=await response.text();if(!response.ok)throw new Error(`GlassBox request failed (${response.status}).`);renderResult(parseSse(text));progress.textContent="Audit complete."}catch(error){renderError(error?.name==="AbortError"?"GlassBox took too long to respond. A free-host cold start may be in progress; please retry.":error?.message||"GlassBox could not complete the audit.");progress.textContent="Audit failed safely."}finally{clearTimeout(timeout);submit.disabled=false}});
+if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>undefined);
+</script>
+</body></html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GlassBox Support</title>
-<meta name="description" content="Install, use, and get help with GlassBox across Discord, Telegram, GitHub, ChatGPT, Claude, and MCP clients.">
+<meta name="description" content="Install, use, and get help with GlassBox across the web, Notion, Discord, Telegram, GitHub, ChatGPT, Claude, and MCP clients.">
 <link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/assets/favicon.png">
 <style>
 :root{color-scheme:dark;--bg:#050814;--panel:#0b1124;--line:#1d2c52;--text:#eef5ff;--muted:#a9b9d5;--blue:#49b8ff;--violet:#8c7cff}
@@ -17,6 +17,9 @@ h1{font-size:clamp(38px,7vw,64px);line-height:1.04;letter-spacing:-.055em;margin
 <h1>Install and support</h1>
 <p class="lead">GlassBox Lite is a generally available, free service that audits an explicitly selected AI answer and returns a deterministic Trust Card. It charges no fee, accepts no payment, needs no paid model API, and does not persist the raw question or answer. Render hosts the gateway infrastructure.</p>
 
+<section class="card" id="web"><h2>Web app and installable PWA</h2><p><a href="/app">Open GlassBox Lite</a> in any modern browser. In supported browsers, use the browser's install command to add it as a standalone web app. It calls the public MCP tool directly and does not require an account or API key.</p></section>
+<section class="card" id="notion"><h2>Notion</h2><p>On a Notion page, type <code>/embed</code>, choose <strong>Embed</strong>, and paste <code>https://glassbox-platform-gateway.onrender.com/app</code>. The frame cannot read the surrounding page; paste only the question and answer you explicitly want audited.</p></section>
+<section class="card" id="downloads"><h2>Browser, VS Code, and JetBrains packages</h2><p>Download the current versioned/checksummed build artifacts from the <a href="https://github.com/TheBarmaEffect/glassbox/releases/latest">latest GitHub release</a>. GitHub packages are available immediately for manual installation; stable Firefox installation and official browser/IDE marketplace discovery remain subject to each store's signing, publisher-verification, and review rules.</p></section>
 <section class="card" id="discord"><h2>Discord</h2><p><a href="https://discord.com/oauth2/authorize?client_id=1536588680813350972">Install GlassBox</a>, then run <code>/glassbox</code> or use the <code>Analyze with GlassBox</code> message action.</p></section>
 <section class="card" id="telegram"><h2>Telegram</h2><p>Open <a href="https://t.me/GlassBoxAuditBot">@GlassBoxAuditBot</a> and follow the bot prompt to audit an answer.</p></section>
 <section class="card" id="github"><h2>GitHub</h2><p><a href="https://github.com/apps/glassbox-by-aura/installations/new">Install GlassBox by Aura</a> on only the repositories you choose. On an issue or pull request, comment <code>/glassbox question || answer</code>. The app reads repository metadata and can write issue comments so it can return the Trust Card.</p></section>

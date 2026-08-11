@@ -3,6 +3,7 @@ import { Router, type Request, type Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
+import { config } from "./config.js";
 import { parseJson, publicError, rawBody, sendJson } from "./http.js";
 import {
   MAX_ANSWER_CHARS,
@@ -15,6 +16,15 @@ import { VerificationService } from "./service.js";
 import type { RedTeamProbe, TrustCard } from "./types.js";
 
 export const GLASSBOX_MCP_TOOL = "glassbox_verify_answer";
+const MCP_RATE_SECRET = config.sharedSecret ?? crypto.randomBytes(32).toString("hex");
+
+export function mcpRateKey(clientAddress: string): string {
+  const digest = crypto.createHmac("sha256", MCP_RATE_SECRET)
+    .update(clientAddress || "unknown")
+    .digest("hex")
+    .slice(0, 32);
+  return `mcp:${digest}`;
+}
 
 const PUBLIC_PROBE_COPY = {
   claim_extraction: {
@@ -124,7 +134,10 @@ export function publicMcpResult(card: TrustCard): PublicMcpResult {
   };
 }
 
-export function createGlassboxMcpServer(service: VerificationService): McpServer {
+export function createGlassboxMcpServer(
+  service: VerificationService,
+  requestContext: { rateKey?: string } = {},
+): McpServer {
   const server = new McpServer({
     name: "glassbox-lite",
     version: "1.0.0",
@@ -183,7 +196,7 @@ export function createGlassboxMcpServer(service: VerificationService): McpServer
           { platform: "mcp", question, answer, intents },
           {
             idempotencyKey: eventKey,
-            rateKey: "mcp:public",
+            rateKey: requestContext.rateKey ?? "mcp:public",
             tenantKey: "mcp:public",
           },
         );
@@ -217,7 +230,8 @@ export function mcpRouter(service: VerificationService): Router {
   const router = Router();
 
   router.post("/mcp", async (request, response) => {
-    const server = createGlassboxMcpServer(service);
+    const clientAddress = request.ip || request.socket.remoteAddress || "unknown";
+    const server = createGlassboxMcpServer(service, { rateKey: mcpRateKey(clientAddress) });
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     response.on("close", () => {
       void transport.close().catch(() => undefined);

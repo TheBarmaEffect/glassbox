@@ -1,0 +1,80 @@
+{
+  "name": "glassbox-lite",
+  "displayName": "GlassBox Lite",
+  "description": "Audit explicitly selected text for structural reasoning issues with the free GlassBox Lite service.",
+  "version": "0.1.0",
+  "publisher": "thebarmaeffect",
+  "license": "Apache-2.0",
+  "homepage": "https://glassbox-platform-gateway.onrender.com/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TheBarmaEffect/glassbox.git",
+    "directory": "platforms/ide/vscode-glassbox"
+  },
+  "bugs": {
+    "url": "https://glassbox-platform-gateway.onrender.com/support"
+  },
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages",
+    "Testing"
+  ],
+  "keywords": [
+    "reasoning",
+    "audit",
+    "arithmetic",
+    "contradiction",
+    "privacy"
+  ],
+  "main": "./dist/src/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "glassbox.auditSelection",
+        "title": "GlassBox: Audit Selected Text"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "glassbox.auditSelection",
+          "when": "editorHasSelection",
+          "group": "navigation@100"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "glassbox.auditSelection",
+          "when": "editorHasSelection"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "GlassBox Lite",
+      "properties": {
+        "glassbox.endpoint": {
+          "type": "string",
+          "default": "https://glassbox-platform-gateway.onrender.com/mcp",
+          "description": "HTTPS Streamable HTTP MCP endpoint. No authorization secret is stored or sent.",
+          "scope": "application"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run compile && node --test dist/test/*.test.js",
+    "package": "npm run test && vsce package --out dist/glassbox-lite-0.1.0.vsix"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/vscode": "^1.96.0",
+    "@vscode/vsce": "^3.6.0",
+    "typescript": "^5.8.3"
+  }
+}

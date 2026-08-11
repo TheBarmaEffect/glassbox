@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GlassBox Lite</title>
+  <link rel="stylesheet" href="audit.css">
+</head>
+<body>
+  <main>
+    <header class="brand">
+      <img src="icons/icon-48.png" width="48" height="48" alt="">
+      <div>
+        <p class="eyebrow">Explicit, private-by-design audit</p>
+        <h1>GlassBox Lite</h1>
+      </div>
+    </header>
+
+    <p class="intro">Paste an AI answer, or select text on a page and use the GlassBox context menu. Nothing is read or sent until you press <strong>Run audit</strong>.</p>
+
+    <form id="audit-form" novalidate>
+      <label for="question">Original question or context</label>
+      <textarea id="question" name="question" maxlength="6000" required placeholder="What question was this answer trying to answer?"></textarea>
+      <div class="field-meta"><span id="question-count">0 / 6,000</span></div>
+
+      <label for="answer">Answer to audit</label>
+      <textarea id="answer" name="answer" maxlength="12000" required placeholder="Paste the answer, or right-click selected text and choose Audit selected text with GlassBox."></textarea>
+      <div class="field-meta"><span id="answer-count">0 / 12,000</span></div>
+
+      <label for="intents">Optional requirements <span>(one per line, up to 8)</span></label>
+      <textarea id="intents" name="intents" maxlength="4000" placeholder="Use calibrated language&#10;Show arithmetic"></textarea>
+
+      <div id="notice" class="notice" role="status" aria-live="polite"></div>
+      <div class="actions">
+        <button id="submit" type="submit">Run audit</button>
+        <button id="clear" type="button" class="secondary">Clear</button>
+      </div>
+    </form>
+
+    <section id="result" class="result" aria-live="polite" hidden></section>
+
+    <footer>
+      <p>Uses the public, zero-cost deterministic GlassBox Lite endpoint. No API key, browsing, background monitoring, or persistent extension storage.</p>
+      <nav aria-label="Extension information">
+        <a href="privacy.html" target="_blank" rel="noreferrer">Extension privacy</a>
+        <a href="https://glassbox-platform-gateway.onrender.com/privacy" target="_blank" rel="noreferrer">Service privacy</a>
+        <a href="https://glassbox-platform-gateway.onrender.com/support" target="_blank" rel="noreferrer">Support</a>
+      </nav>
+    </footer>
+  </main>
+  <script src="audit.js"></script>
+</body>
+</html>
