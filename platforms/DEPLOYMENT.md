@@ -44,7 +44,7 @@ curl https://YOUR_DOMAIN/terms
 
 1. Create the bot with BotFather and copy its token to `TELEGRAM_BOT_TOKEN`.
 2. Generate a random URL-safe `TELEGRAM_WEBHOOK_SECRET`.
-3. Set `PUBLIC_BASE_URL`, then run `npm run set-webhook:telegram`.
+3. Set `PUBLIC_BASE_URL`. Before opening its listening socket, the gateway automatically calls Telegram `setWebhook` for `${PUBLIC_BASE_URL}/telegram/webhook` with the configured secret and `allowed_updates=["message"]`. Startup fails with a sanitized error if registration fails; tokens and webhook secrets are never logged. `npm run set-webhook:telegram` remains available as an optional manual check.
 4. Set BotFather commands: `start - Privacy and consent information`, `privacy - Privacy information`, and `glassbox - Audit a replied-to AI answer`.
 5. Add `https://YOUR_DOMAIN/privacy` as the bot privacy-policy link in BotFather.
 6. Keep group privacy mode enabled. The bot only needs commands and replied-to messages.

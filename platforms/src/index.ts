@@ -3,11 +3,18 @@ import { GlassboxMcpVerifier } from "./glassbox.js";
 import { RedditWorker } from "./reddit.js";
 import { buildServer } from "./server.js";
 import { VerificationService } from "./service.js";
+import { registerTelegramWebhook } from "./telegram-webhook.js";
 
 const verifier = new GlassboxMcpVerifier();
 const service = new VerificationService(verifier);
 const app = buildServer(service);
 const reddit = new RedditWorker(service);
+
+await registerTelegramWebhook({
+  botToken: config.telegram.botToken,
+  webhookSecret: config.telegram.webhookSecret,
+  publicBaseUrl: config.publicBaseUrl,
+});
 
 const server = app.listen(config.port, "0.0.0.0", () => {
   console.log(`GlassBox platform gateway listening on :${config.port}`);

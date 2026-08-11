@@ -25,6 +25,8 @@ npm start
 
 Check `http://localhost:8080/health` for liveness and `/ready` for MCP/API-key readiness. Only adapters whose complete credentials are present appear in the `platforms` list.
 
+When Telegram credentials are configured, startup registers `${PUBLIC_BASE_URL}/telegram/webhook` before the gateway begins listening. Startup fails closed if the Telegram registration cannot be completed; the failure message never includes the bot token or webhook secret.
+
 Run the container:
 
 ```bash
