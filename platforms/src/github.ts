@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { Router } from "express";
 import { config } from "./config.js";
 import { formatTrustCard } from "./formatter.js";
+import { githubMarketplaceRouter } from "./github-marketplace.js";
 import { parseJson, publicError, rawBody, sendJson, verifyHmac } from "./http.js";
 import { parseDelimitedCommand } from "./parser.js";
 import { DuplicateRequestError, VerificationService } from "./service.js";
@@ -20,6 +21,7 @@ const tokenCache = new Map<number, { token: string; expires: number }>();
 
 export function githubRouter(service: VerificationService): Router {
   const router = Router();
+  router.use(githubMarketplaceRouter());
   router.post("/github/webhook", (request, response) => {
     const body = rawBody(request);
     const signature = request.header("x-hub-signature-256") ?? "";

@@ -107,6 +107,22 @@ Create a GitHub App with:
 
 Make the app public when the installation test passes. A Marketplace listing is optional. When App ID and private-key credentials are configured they always take precedence over `GITHUB_TOKEN`. For a single-repository pilot, leave the App credentials unset and use `GITHUB_TOKEN` as a fallback, but do not use a personal token for broad distribution.
 
+For the optional zero-cost, free-plan-only GitHub Marketplace listing, configure these separately from the normal App webhook:
+
+- Marketplace **Payload URL**: `https://YOUR_DOMAIN/github/marketplace`
+- Marketplace **Content type**: `application/json`
+- Marketplace **Secret**: a distinct high-entropy value stored as `GITHUB_MARKETPLACE_WEBHOOK_SECRET`
+- Marketplace **Active**: enabled before review
+- GitHub App **Setup URL**: `https://YOUR_DOMAIN/github/marketplace/setup`
+- GitHub App **Callback URL**: `https://YOUR_DOMAIN/github/marketplace/callback`
+- GitHub App OAuth credentials: `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`
+
+Do not reuse `GITHUB_WEBHOOK_SECRET` for the Marketplace listing. The dedicated route validates the untouched raw body with HMAC-SHA256, requires `X-GitHub-Event: marketplace_purchase` and a bounded `X-GitHub-Delivery`, and applies `purchased` and `cancelled` actions idempotently. It activates only plans whose Marketplace payload identifies the plan as `FREE` with no positive price and rejects trials or paid plans.
+
+GitHub appends `marketplace_listing_plan_id` to the Setup URL. GlassBox binds that plan ID into signed, one-time, 10-minute OAuth state; the callback exchanges the temporary code, confirms the same active free plan through `GET /user/marketplace_purchases`, and immediately revokes the user token after verification. It stores no OAuth token or purchase payload. The success page contains no account or purchase data.
+
+The free single-instance pilot keeps only bounded delivery IDs and `{accountId, planId, status}` records in memory. Restarting the instance clears them, so this state must not be used for billing or authorization. GitHub App installation permissions remain the access boundary. Replace this state with durable synchronization before paid plans, multiple replicas, or entitlement enforcement. GitHub does not redeliver failed Marketplace webhooks, so complete draft purchase and cancellation simulations before submitting for review.
+
 Usage on an issue or PR:
 
 ```text

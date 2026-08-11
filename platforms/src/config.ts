@@ -72,6 +72,9 @@ export const config = {
   },
   github: {
     webhookSecret: process.env.GITHUB_WEBHOOK_SECRET,
+    marketplaceWebhookSecret: process.env.GITHUB_MARKETPLACE_WEBHOOK_SECRET,
+    clientId: process.env.GITHUB_CLIENT_ID,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET,
     token: process.env.GITHUB_TOKEN,
     appId: process.env.GITHUB_APP_ID,
     privateKey: process.env.GITHUB_PRIVATE_KEY?.replaceAll("\\n", "\n"),
