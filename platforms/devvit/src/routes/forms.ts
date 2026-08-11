@@ -7,26 +7,30 @@ import {
   requestGlassboxAudit,
   selectedContent,
 } from '../core/audit.ts';
+import { consentedTargetId } from '../core/selection.ts';
 
-type ConfirmAuditValues = { consent?: boolean };
+type ConfirmAuditValues = Record<string, unknown>;
 
 export const forms = new Hono();
 
 forms.post('/confirm-audit', async (c) => {
   const values = await c.req.json<ConfirmAuditValues>();
-  if (values.consent !== true) {
+  const targetId = consentedTargetId(values);
+  if (!targetId) {
     return c.json<UiResponse>({ showToast: 'Audit canceled: consent is required.' });
   }
 
+  let stage = 'content';
   try {
-    const [content, secret] = await Promise.all([
-      loadSelectedContent(),
-      settings.get('glassboxGatewaySecret'),
-    ]);
+    const content = await loadSelectedContent(targetId);
+    stage = 'settings';
+    const secret = await settings.get('glassboxGatewaySecret');
     if (typeof secret !== 'string' || !secret.trim()) {
       throw new GatewayError('GlassBox gateway secret is not configured.');
     }
+    stage = 'gateway';
     const card = await requestGlassboxAudit({ content, secret });
+    stage = 'format';
     const result = formatTrustCard(card);
     return c.json<UiResponse>({
       showForm: {
@@ -54,7 +58,11 @@ forms.post('/confirm-audit', async (c) => {
         ? error.message
         : 'GlassBox could not audit the selected content. Retry shortly.';
     console.error(
-      `GlassBox Devvit audit failed: ${error instanceof GatewayError ? 'gateway' : 'internal'}`,
+      `GlassBox Devvit audit failed: ${
+        error instanceof GatewayError
+          ? `gateway-${error.status ?? 'network'}`
+          : `internal-${stage}`
+      }`,
     );
     return c.json<UiResponse>({ showToast: message });
   }
@@ -65,15 +73,15 @@ forms.post('/close-result', async (c) => {
   return c.json<UiResponse>({ showToast: 'GlassBox audit closed.' });
 });
 
-async function loadSelectedContent() {
-  if (context.commentId) {
-    const comment = await reddit.getCommentById(context.commentId);
+async function loadSelectedContent(targetId: string) {
+  if (targetId.startsWith('t1_')) {
+    const comment = await reddit.getCommentById(targetId as `t1_${string}`);
     assertInstallationScope(comment.subredditName);
     const post = await reddit.getPostById(comment.postId);
     return selectedContent('comment', post.title, comment.body);
   }
-  if (context.postId) {
-    const post = await reddit.getPostById(context.postId);
+  if (targetId.startsWith('t3_')) {
+    const post = await reddit.getPostById(targetId as `t3_${string}`);
     assertInstallationScope(post.subredditName);
     return selectedContent('post', post.title, post.body ?? post.title);
   }
