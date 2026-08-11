@@ -13,9 +13,12 @@ export async function registerTelegramWebhook(
   const { botToken, webhookSecret, publicBaseUrl } = settings;
   if (!botToken && !webhookSecret) return "skipped";
   if (!botToken || !webhookSecret || !publicBaseUrl) {
-    throw new Error(
-      "Telegram webhook registration requires TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, and PUBLIC_BASE_URL.",
-    );
+    const missing = [
+      !botToken && "TELEGRAM_BOT_TOKEN",
+      !webhookSecret && "TELEGRAM_WEBHOOK_SECRET",
+      !publicBaseUrl && "PUBLIC_BASE_URL",
+    ].filter(Boolean).join(", ");
+    throw new Error(`Telegram webhook registration is missing: ${missing}.`);
   }
 
   let webhookUrl: string;

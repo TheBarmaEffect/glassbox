@@ -59,6 +59,6 @@ test("Telegram webhook registration failures are clear and redact credentials", 
 test("partial Telegram credentials fail before startup", async () => {
   await assert.rejects(
     registerTelegramWebhook({ botToken: "token-only" }),
-    /requires TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, and PUBLIC_BASE_URL/,
+    /missing: TELEGRAM_WEBHOOK_SECRET, PUBLIC_BASE_URL/,
   );
 });
