@@ -13,17 +13,29 @@ const FACT_CHECK_CAVEAT =
   "GlassBox Lite is a deterministic reasoning check, not a fact-check; it does not browse, validate citations, or verify external facts.";
 
 const CERTAINTY_PATTERN =
-  /\b(?:always|never|definitely|certainly|absolutely certain|absolute certainty|guaranteed|indisputable|undeniable|unquestionably|without (?:a )?doubt|proves?|proven|100\s*%|must be true)\b/i;
+  /\b(?:always|never|definitely|certainly|absolutely certain|absolute certainty|guaranteed|indisputable|undeniable|unquestionably|(?:without|beyond)\s+(?:a |any )?doubt|no doubt(?:\s+whatsoever)?|beyond question|proves?|proven|100\s*%|must be true)\b/i;
 const UNCERTAINTY_PATTERN =
   /\b(?:may|might|could|perhaps|possibly|likely|unlikely|uncertain|unclear|cannot confirm|can't confirm|do not know|don't know|unable to verify|not enough information)\b/i;
 const CITATION_PATTERN =
   /https?:\/\/\S+|www\.\S+|\bdoi:\s*10\.\d{4,9}\/\S+|\[[0-9]{1,3}\]|\b[A-Z][A-Za-z'-]+(?:\s+et al\.)?\s*\([12][0-9]{3}\)/g;
-const VAGUE_SOURCE_PATTERN =
-  /\b(?:studies|research|experts|scientists|reports|data)\s+(?:show|shows|prove|proves|confirm|confirms|say|says|suggest|suggests)\b/i;
+const VAGUE_ATTRIBUTION_NOUNS =
+  "studies|study|research|researchers|experts|scientists|analysts|authorities|reports|literature|papers|sources|evidence|data";
+const VAGUE_ATTRIBUTION_VERBS =
+  "show|shows|shown|prove|proves|proven|confirm|confirms|confirmed|say|says|suggest|suggests|suggested|" +
+  "indicate|indicates|indicated|agree|agrees|agreed|demonstrate|demonstrates|demonstrated|" +
+  "find|finds|found|conclude|concludes|concluded|report|reports|reported|claim|claims|claimed";
+// Bounded gap so an auxiliary ("papers have demonstrated") is covered without
+// letting the match run across an unrelated clause.
+const VAGUE_SOURCE_PATTERN = new RegExp(
+  `\\b(?:${VAGUE_ATTRIBUTION_NOUNS})\\b[^.!?]{0,32}?\\b(?:${VAGUE_ATTRIBUTION_VERBS})\\b` +
+  `|\\bit is (?:well|widely|commonly|generally)\\s+(?:known|understood|accepted|agreed|established)\\b`,
+  "i",
+);
 const SOURCE_REQUEST_PATTERN =
   /\b(?:fact[- ]?check|verify (?:the )?facts?|is (?:this|that|it) true|correctness|cite|citation|source|evidence|reference|bibliograph)\b/i;
 const PROMPT_INJECTION_PATTERN =
-  /\b(?:ignore|disregard|forget)\b.{0,40}\b(?:previous|prior|above|system|developer)\b.{0,25}\b(?:instruction|message|prompt)s?\b|\b(?:reveal|print|repeat|expose|leak)\b.{0,40}\b(?:system prompt|developer message|secret|credential|api key|token)\b|\b(?:jailbreak|do anything now|developer mode)\b|<\/?(?:system|assistant|developer)>|\[(?:INST|SYSTEM)\]/i;
+  /\b(?:ignore|disregard|forget)\b.{0,40}\b(?:previous|prior|above|system|developer)\b.{0,25}\b(?:instruction|message|prompt)s?\b|\b(?:reveal|print|repeat|expose|leak)\b.{0,40}\b(?:system prompt|developer message|secret|credential|api key|token)\b|\b(?:jailbreak|do anything now|developer mode)\b|<\/?(?:system|assistant|developer)>|\[(?:INST|SYSTEM)\]|\b(?:ignore|disregard|override|forget)\s+(?:all\s+|everything\s+)?(?:the\s+|your\s+)?(?:above|previous|prior|earlier|preceding)\b|\bforget everything\b|\bnew instructions?\s*:|\b(?:ignore|disregard|override|bypass)\b.{0,30}\b(?:safety|guardrail|guideline|restriction|policy|rule)s?\b/i;
+
 const NEGATION_PATTERN =
   /\b(?:not|never|no|cannot|can't|isn't|aren't|wasn't|weren't|doesn't|don't|didn't|won't|wouldn't|couldn't|shouldn't|hasn't|haven't|hadn't)\b/i;
 
@@ -47,6 +59,11 @@ const STOP_WORDS = new Set([
   "those", "to", "was", "were", "will", "with", "not", "never", "no", "cannot", "cant", "isnt", "arent",
   "wasnt", "werent", "doesnt", "dont", "didnt", "wont", "wouldnt", "couldnt", "shouldnt", "hasnt", "havent",
   "hadnt", "all",
+  // Auxiliary and modal verbs are function words: they must not count toward
+  // content overlap. Their absence made "X succeeded" / "X did not succeed"
+  // score 2/3 on Jaccard and fall under the contradiction threshold.
+  "do", "does", "did", "done", "had", "am", "can", "could", "would", "should",
+  "may", "might", "must", "shall",
 ]);
 
 interface ArithmeticCheck {
@@ -420,17 +437,79 @@ function numericContradiction(left: string, right: string): boolean {
   if (leftNumbers.length === 0 || rightNumbers.length === 0) return false;
   const leftFrame = numericFrame(left);
   const rightFrame = numericFrame(right);
-  return /[a-z]/.test(leftFrame) && leftFrame === rightFrame &&
-    leftNumbers.join("|") !== rightNumbers.join("|");
+  if (!/[a-z]/.test(leftFrame) || leftFrame !== rightFrame) return false;
+  if (leftNumbers.join("|") === rightNumbers.join("|")) return false;
+  return !comparesDistinctEntities(leftNumbers, rightNumbers);
+}
+
+/**
+ * Distinguishes a comparison of two entities from a self-contradiction about one.
+ *
+ * numericFrame replaces every number with "#", including numbers that identify
+ * *which* entity a claim is about. "The M4 Air has 16GB RAM" and "The M5 Air has
+ * 24GB RAM" therefore collapse to the same frame and were reported as a direct
+ * contradiction, when they are a product comparison. Real users hit this on
+ * their first non-trivial inputs; the constructed benchmark never did, because
+ * its temporal control distinguished claims by a word ("last quarter") rather
+ * than by a number.
+ *
+ * Rule: a claim carrying several numbers needs a shared numeric anchor before a
+ * differing value counts as a contradiction. If every numeric position differs,
+ * the two claims are about different things.
+ *
+ *   [30]      vs [90]       single value, differs  -> contradiction
+ *   [4, 8]    vs [4, 10]    anchor 4 shared        -> contradiction
+ *   [4, 16]   vs [5, 24]    no shared anchor       -> comparison
+ *   [2024,12] vs [2025,30]  no shared anchor       -> comparison
+ */
+function comparesDistinctEntities(left: string[], right: string[]): boolean {
+  if (left.length < 2 || right.length < 2) return false;
+  const shared = new Set(left).size > 0 && left.some((value) => right.includes(value));
+  return !shared;
 }
 
 function isNegated(value: string): boolean {
   return NEGATION_PATTERN.test(value.replace(/\bnot only\b/gi, ""));
 }
 
+/**
+ * Light suffix normalisation so an inflected pair such as "succeeded" and
+ * "succeed" is recognised as the same lemma. Deliberately conservative: it only
+ * trims common regular endings on words long enough that the trim cannot
+ * collapse two genuinely different short words together.
+ */
+function stripOnce(token: string): string {
+  if (token.length > 5 && token.endsWith("ied")) return `${token.slice(0, -3)}y`;
+  if (token.length > 5 && token.endsWith("ing")) return token.slice(0, -3);
+  if (token.length > 4 && token.endsWith("ed")) return token.slice(0, -2);
+  if (token.length > 4 && token.endsWith("es")) return token.slice(0, -2);
+  if (token.length > 3 && token.endsWith("s") && !token.endsWith("ss")) return token.slice(0, -1);
+  return token;
+}
+
+/**
+ * Applied to a fixed point. A single pass is not enough: "succeeded" trims to
+ * "succeed", which itself still ends in "ed", so one pass leaves the inflected
+ * and base forms in different buckets and the pair never matches. Iterating
+ * until stable sends both to the same stem.
+ */
+function normaliseToken(token: string): string {
+  let current = token;
+  for (let i = 0; i < 4; i += 1) {
+    const next = stripOnce(current);
+    if (next === current) return current;
+    current = next;
+  }
+  return current;
+}
+
 function meaningfulTokens(value: string): Set<string> {
   const tokens = value.toLowerCase().replace(/[’']/g, "").match(/[a-z0-9]+/g) ?? [];
-  return new Set(tokens.filter((token) => !STOP_WORDS.has(token) && !/^\d/.test(token)));
+  return new Set(
+    tokens
+      .filter((token) => !STOP_WORDS.has(token) && !/^\d/.test(token))
+      .map(normaliseToken),
+  );
 }
 
 function numericTokens(value: string): string[] {
