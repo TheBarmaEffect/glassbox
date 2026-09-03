@@ -11,7 +11,7 @@ export interface VerificationInput {
   response_policy?: ResponsePolicy;
 }
 
-export type RuleKind = "require_phrase" | "forbid_phrase" | "require_citation" | "forbid_absolute_certainty";
+export type RuleKind = "require_phrase" | "forbid_phrase" | "require_citation" | "forbid_absolute_certainty" | "allow_target" | "forbid_target";
 export interface ConstitutionRule { id: string; requirement: string; kind: RuleKind; value?: string; severity: RedTeamProbe["severity"]; }
 export interface RuntimeConstitution { version: string; rules: ConstitutionRule[]; }
 export interface RuntimeCheckpoint { id: string; type: "input" | "model_output" | "agent_step" | "tool_call" | "final_output"; actor?: string; target?: string; }

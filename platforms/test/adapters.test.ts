@@ -4,7 +4,7 @@ import test from "node:test";
 import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { TrustCard, Verifier } from "../src/types.js";
+import type { TrustCard, VerificationInput, Verifier } from "../src/types.js";
 
 process.env.PLATFORM_SHARED_SECRET = "api-test-secret";
 process.env.OPENAI_APPS_CHALLENGE_TOKEN = "openai-challenge-token";
@@ -37,7 +37,8 @@ const card: TrustCard = {
   constitution: { rules: [] },
   audit: { log_id: "test", generated_at: "now", inputs_hash: "hash" },
 };
-const verifier: Verifier = { verify: async () => card };
+let lastVerificationInput: VerificationInput | undefined;
+const verifier: Verifier = { verify: async (input) => { lastVerificationInput = input; return card; } };
 const app = buildServer(new VerificationService(verifier, 1, 10, 10));
 const server = app.listen(0, "127.0.0.1");
 await new Promise<void>((resolve) => server.once("listening", resolve));
@@ -61,6 +62,22 @@ test("health reports only fully configured adapters", async () => {
   assert.equal(body.access, "mixed");
   assert.deepEqual(body.public_platforms, ["discord", "telegram", "mcp"]);
   assert.deepEqual(body.platforms.sort(), ["api", "discord", "github", "mcp", "slack", "telegram"].sort());
+});
+
+test("capability contract exposes checks and enforcement boundaries", async () => {
+  const response = await fetch(`${base}/api/v1/capabilities`);
+  const body = await response.json() as {
+    deterministic_probes: string[];
+    checkpoints: string[];
+    response_is_enforced_by_gateway: boolean;
+    external_fact_verification: boolean;
+  };
+  assert.equal(response.status, 200);
+  assert.ok(body.deterministic_probes.includes("credential_exposure"));
+  assert.ok(body.deterministic_probes.includes("unsupported_specificity"));
+  assert.ok(body.checkpoints.includes("tool_call"));
+  assert.equal(body.response_is_enforced_by_gateway, false);
+  assert.equal(body.external_fact_verification, false);
 });
 
 test("Lite readiness succeeds without a paid-model API key", async () => {
@@ -139,6 +156,37 @@ test("universal API requires its bearer secret", async () => {
   });
   assert.equal(accepted.status, 200);
   assert.equal((await accepted.json() as TrustCard).verdict, "trust");
+});
+
+test("universal API preserves governance fields and rejects malformed bodies", async () => {
+  const governed = await fetch(`${base}/api/v1/verify`, {
+    method: "POST",
+    headers: { authorization: "Bearer api-test-secret", "content-type": "application/json", "x-idempotency-key": "api-governance-test" },
+    body: JSON.stringify({
+      question: "May this proceed?", answer: "Use human approval.",
+      checkpoint: { id: "tool-1", type: "tool_call", target: "payments.submit" },
+      constitution: { version: "payments/1", rules: [{ id: "approval", requirement: "Require approval", kind: "require_phrase", value: "human approval", severity: "critical" }] },
+      response_policy: { reject: "block" },
+    }),
+  });
+  assert.equal(governed.status, 200);
+  assert.equal(lastVerificationInput?.checkpoint?.type, "tool_call");
+  assert.equal(lastVerificationInput?.constitution?.version, "payments/1");
+  assert.equal(lastVerificationInput?.response_policy?.reject, "block");
+
+  const malformed = await fetch(`${base}/api/v1/verify`, {
+    method: "POST",
+    headers: { authorization: "Bearer api-test-secret", "content-type": "application/json" },
+    body: "null",
+  });
+  assert.equal(malformed.status, 400);
+
+  const malformedRule = await fetch(`${base}/api/v1/verify`, {
+    method: "POST",
+    headers: { authorization: "Bearer api-test-secret", "content-type": "application/json" },
+    body: JSON.stringify({ question: "q", answer: "a", constitution: { version: "v1", rules: [null] } }),
+  });
+  assert.equal(malformedRule.status, 400);
 });
 
 test("public Streamable HTTP MCP lists and calls the zero-cost verifier", async () => {

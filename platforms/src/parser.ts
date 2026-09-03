@@ -1,4 +1,4 @@
-import type { ConstitutionRule, Platform, ResponseAction, VerificationInput } from "./types.js";
+import { PLATFORMS, type ConstitutionRule, type Platform, type ResponseAction, type VerificationInput } from "./types.js";
 
 export const MAX_QUESTION_CHARS = 6_000;
 export const MAX_ANSWER_CHARS = 12_000;
@@ -19,6 +19,7 @@ function clean(value: string, max: number, label: string): string {
 }
 
 export function normalizeInput(input: VerificationInput): VerificationInput {
+  if (!PLATFORMS.includes(input.platform)) throw new InputError("Platform is not supported.");
   const intents = (input.intents ?? [])
     .map((intent) => intent.trim())
     .filter(Boolean)
@@ -48,25 +49,28 @@ export function normalizeInput(input: VerificationInput): VerificationInput {
 
 function normalizeCheckpoint(value: VerificationInput["checkpoint"]): VerificationInput["checkpoint"] {
   if (!value) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) throw new InputError("Checkpoint must be an object.");
   if (!["input", "model_output", "agent_step", "tool_call", "final_output"].includes(value.type)) throw new InputError("Checkpoint type is not supported.");
   return { id: clean(String(value.id), 120, "Checkpoint id"), type: value.type, ...(value.actor ? { actor: clean(String(value.actor), 200, "Checkpoint actor") } : {}), ...(value.target ? { target: clean(String(value.target), 500, "Checkpoint target") } : {}) };
 }
 
 function normalizeConstitution(value: VerificationInput["constitution"]): VerificationInput["constitution"] {
   if (!value) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) throw new InputError("Constitution must be an object.");
   if (!Array.isArray(value.rules) || value.rules.length === 0) throw new InputError("A constitution must contain at least one rule.");
   if (value.rules.length > MAX_CONSTITUTION_RULES) throw new InputError(`A constitution may contain at most ${MAX_CONSTITUTION_RULES} rules.`);
   const ids = new Set<string>();
-  const kinds = new Set(["require_phrase", "forbid_phrase", "require_citation", "forbid_absolute_certainty"]);
+  const kinds = new Set(["require_phrase", "forbid_phrase", "require_citation", "forbid_absolute_certainty", "allow_target", "forbid_target"]);
   const severities = new Set(["low", "medium", "high", "critical"]);
   const rules: ConstitutionRule[] = value.rules.map((rule) => {
+    if (!rule || typeof rule !== "object" || Array.isArray(rule)) throw new InputError("Every constitution rule must be an object.");
     const id = clean(String(rule.id), 80, "Rule id");
     if (ids.has(id)) throw new InputError(`Duplicate constitution rule id: ${id}.`);
     ids.add(id);
     if (!kinds.has(rule.kind)) throw new InputError(`Unsupported constitution rule kind: ${String(rule.kind)}.`);
     if (!severities.has(rule.severity)) throw new InputError(`Unsupported rule severity: ${String(rule.severity)}.`);
-    const ruleValue = rule.value?.trim();
-    if ((rule.kind === "require_phrase" || rule.kind === "forbid_phrase") && !ruleValue) throw new InputError(`Rule ${id} requires a value.`);
+    const ruleValue = typeof rule.value === "string" ? rule.value.trim() : undefined;
+    if (["require_phrase", "forbid_phrase", "allow_target", "forbid_target"].includes(rule.kind) && !ruleValue) throw new InputError(`Rule ${id} requires a value.`);
     if (ruleValue && ruleValue.length > 500) throw new InputError(`Rule ${id} value is too long.`);
     return { id, requirement: clean(String(rule.requirement), 500, "Rule requirement"), kind: rule.kind, severity: rule.severity, ...(ruleValue ? { value: ruleValue } : {}) };
   });
@@ -75,6 +79,7 @@ function normalizeConstitution(value: VerificationInput["constitution"]): Verifi
 
 function normalizeResponsePolicy(value: VerificationInput["response_policy"]): VerificationInput["response_policy"] {
   if (!value) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) throw new InputError("Response policy must be an object.");
   const actions = new Set<ResponseAction>(["allow", "record", "block", "retry", "escalate"]);
   for (const action of [value.trust, value.caution, value.reject]) if (action && !actions.has(action)) throw new InputError(`Unsupported response action: ${String(action)}.`);
   return { ...(value.trust ? { trust: value.trust } : {}), ...(value.caution ? { caution: value.caution } : {}), ...(value.reject ? { reject: value.reject } : {}) };

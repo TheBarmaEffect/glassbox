@@ -70,6 +70,33 @@ export function buildServer(service: VerificationService): Express {
     });
   });
 
+  app.get("/api/v1/capabilities", (_request, response) => {
+    sendJson(response, 200, {
+      schema_version: "2026-09-03",
+      backend: config.verifierBackend,
+      checkpoints: ["input", "model_output", "agent_step", "tool_call", "final_output"],
+      deterministic_probes: [
+        "claim_extraction", "unsupported_certainty", "citation_verifiability",
+        "unsupported_specificity", "answer_relevance", "internal_contradiction",
+        "arithmetic_sanity", "input_injection", "prompt_injection",
+        "credential_exposure", "dangerous_action", "network_boundary", "fact_check_scope",
+      ],
+      constitution_rule_kinds: [
+        "require_phrase", "forbid_phrase", "require_citation", "forbid_absolute_certainty",
+        "allow_target", "forbid_target",
+      ],
+      response_actions: ["allow", "record", "block", "retry", "escalate"],
+      response_is_enforced_by_gateway: false,
+      external_fact_verification: false,
+      raw_content_persistence: false,
+      limitations: [
+        "Pattern-based checks do not detect every attack or hallucination.",
+        "The caller must enforce the recommended response.",
+        "The gateway is not a sandbox, firewall, malware scanner, or professional-advice system.",
+      ],
+    });
+  });
+
   app.get("/ready", async (_request, response) => {
     const readinessProblem = pilotReadinessProblem({
       backend: config.verifierBackend,

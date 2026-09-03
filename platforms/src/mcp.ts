@@ -43,6 +43,22 @@ const PUBLIC_PROBE_COPY = {
     passed: "No instruction-like prompt-injection signal was detected.",
     failed: "Instruction-like prompt-injection language was detected and treated as inert text.",
   },
+  input_injection: {
+    passed: "No supported input-side instruction-override signal was detected.",
+    failed: "An input-side instruction-override signal was detected, including normalized or decoded text.",
+  },
+  credential_exposure: {
+    passed: "No supported credential format was detected.",
+    failed: "Potential credential material was detected and its value was withheld.",
+  },
+  dangerous_action: {
+    passed: "No supported destructive or executable attack pattern was detected.",
+    failed: "Potentially dangerous executable content was detected.",
+  },
+  network_boundary: {
+    passed: "No unsafe checkpoint network target was detected.",
+    failed: "A checkpoint target crossed the deterministic network-boundary policy.",
+  },
   fact_check_scope: {
     passed: "The answer did not overstate the scope of this non-web audit.",
     failed: "The request requires external fact-checking that GlassBox Lite does not perform.",
@@ -50,6 +66,14 @@ const PUBLIC_PROBE_COPY = {
   citation_verifiability: {
     passed: "No citation-transparency issue was detected by the structural check.",
     failed: "A citation-transparency issue was detected; external sources were not authenticated.",
+  },
+  unsupported_specificity: {
+    passed: "No unsupported high-specificity factual signal was detected.",
+    failed: "A specific date, percentage, amount, identifier, or measurement needs support.",
+  },
+  answer_relevance: {
+    passed: "No clear lexical non-response signal was detected.",
+    failed: "The answer may be a non-response or topic switch and needs inspection.",
   },
   arithmetic_sanity: {
     passed: "No error was found in the supported arithmetic forms that were present.",
@@ -151,7 +175,8 @@ export function createGlassboxMcpServer(
         "Use this when a user explicitly asks to audit a supplied question/answer pair with the " +
         "zero-cost deterministic GlassBox Lite engine. Returns a privacy-minimized verdict, score, " +
         "fixed-category findings, probe results, and caveats covering claims, arithmetic, direct " +
-        "contradictions, unsupported certainty, citation transparency, and prompt-injection signals. " +
+        "contradictions, unsupported certainty, citation transparency, prompt injection, credential " +
+        "exposure, dangerous executable content, and network-boundary signals. " +
         "Do not use it as a web fact-check, source authenticator, truth guarantee, or professional advice.",
       inputSchema: {
         question: z.string().trim().min(1).max(MAX_QUESTION_CHARS)

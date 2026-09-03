@@ -27,6 +27,9 @@ export function apiRouter(service: VerificationService): Router {
 
     try {
       const body = parseJson<Partial<VerificationInput>>(rawBody(request));
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        throw new InputError("Request body must be a JSON object.");
+      }
       const idempotency = request.header("x-idempotency-key") ?? crypto.randomUUID();
       const eventKey = `api:${idempotency}`;
       const card = await service.run(
@@ -35,6 +38,9 @@ export function apiRouter(service: VerificationService): Router {
           question: String(body.question ?? ""),
           answer: String(body.answer ?? ""),
           intents: Array.isArray(body.intents) ? body.intents.map(String) : [],
+          checkpoint: body.checkpoint,
+          constitution: body.constitution,
+          response_policy: body.response_policy,
         },
         {
           idempotencyKey: eventKey,

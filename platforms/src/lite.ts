@@ -34,8 +34,28 @@ const VAGUE_SOURCE_PATTERN = new RegExp(
 );
 const SOURCE_REQUEST_PATTERN =
   /\b(?:fact[- ]?check|verify (?:the )?facts?|is (?:this|that|it) true|correctness|cite|citation|source|evidence|reference|bibliograph)\b/i;
+const SPECIFIC_FACT_PATTERN =
+  /(?:\b(?:19|20)\d{2}\b|\b\d+(?:\.\d+)?\s*%\b|[$€£]\s*\d|\bCVE-\d{4}-\d{4,}\b|\b\d+(?:\.\d+)?\s*(?:mg|ml|g|kg|GB|TB|ms)\b)/i;
 const PROMPT_INJECTION_PATTERN =
   /\b(?:ignore|disregard|forget)\b.{0,40}\b(?:previous|prior|above|system|developer)\b.{0,25}\b(?:instruction|message|prompt)s?\b|\b(?:reveal|print|repeat|expose|leak)\b.{0,40}\b(?:system prompt|developer message|secret|credential|api key|token)\b|\b(?:jailbreak|do anything now|developer mode)\b|<\/?(?:system|assistant|developer)>|\[(?:INST|SYSTEM)\]|\b(?:ignore|disregard|override|forget)\s+(?:all\s+|everything\s+)?(?:the\s+|your\s+)?(?:above|previous|prior|earlier|preceding)\b|\bforget everything\b|\bnew instructions?\s*:|\b(?:ignore|disregard|override|bypass)\b.{0,30}\b(?:safety|guardrail|guideline|restriction|policy|rule)s?\b/i;
+const SECRET_PATTERNS: Array<[string, RegExp]> = [
+  ["private key", /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/i],
+  ["AWS access key", /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/],
+  ["GitHub token", /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}\b/],
+  ["Slack token", /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/],
+  ["bearer credential", /\bBearer\s+[A-Za-z0-9._~+/=-]{20,}\b/i],
+  ["JSON Web Token", /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/],
+];
+const DANGEROUS_ACTION_PATTERNS: Array<[string, RegExp]> = [
+  ["destructive filesystem command", /\brm\s+-[^\n]*r[^\n]*f[^\n]*(?:\/|~|\$HOME)\b/i],
+  ["download-and-execute pipeline", /\b(?:curl|wget)\b[^\n|]{0,300}\|\s*(?:sh|bash|zsh|powershell)\b/i],
+  ["encoded PowerShell execution", /\bpowershell(?:\.exe)?\b[^\n]{0,160}\b(?:-enc|-encodedcommand)\b/i],
+  ["reverse shell", /\b(?:nc|ncat|netcat)\b[^\n]{0,120}\s-e\s*(?:\/bin\/)?(?:sh|bash)|\/dev\/tcp\//i],
+  ["firewall or security-control disabling", /\b(?:disable|stop|bypass|turn off)\b[^.!?\n]{0,60}\b(?:firewall|antivirus|endpoint protection|security control|guardrail)\b/i],
+  ["destructive SQL", /\b(?:DROP\s+(?:DATABASE|TABLE)|TRUNCATE\s+TABLE)\b/i],
+  ["script injection", /<script\b|javascript\s*:/i],
+  ["path traversal", /(?:\.\.\/|\.\.\\){2,}/],
+];
 
 const NEGATION_PATTERN =
   /\b(?:not|never|no|cannot|can't|isn't|aren't|wasn't|weren't|doesn't|don't|didn't|won't|wouldn't|couldn't|shouldn't|hasn't|haven't|hadn't)\b/i;
@@ -95,10 +115,12 @@ export class GlassboxLiteVerifier implements Verifier {
     const input = normalizeInput(raw);
     const analysis = analyze(input);
     const customRules = input.constitution?.rules ?? [];
-    analysis.probes.push(...evaluateConstitution(input.answer, customRules));
+    analysis.probes.push(...evaluateConstitution(input, customRules));
     const failed = analysis.probes.filter((probe) => !probe.passed);
     const decisiveFailure = failed.some(
       (probe) => probe.angle === "internal_contradiction" || probe.angle === "arithmetic_sanity" ||
+        ["input_injection", "credential_exposure", "network_boundary"].includes(probe.angle) ||
+        (probe.angle === "dangerous_action" && ["agent_step", "tool_call"].includes(input.checkpoint?.type ?? "")) ||
         (probe.angle.startsWith("constitution:") && ["high", "critical"].includes(probe.severity)),
     );
     const verdict: TrustCard["verdict"] = decisiveFailure
@@ -164,7 +186,15 @@ function analyze(input: VerificationInput): Analysis {
   const sourceRequested = SOURCE_REQUEST_PATTERN.test(
     `${input.question}\n${(input.intents ?? []).join("\n")}`,
   );
-  const injectionSignals = claimTexts.filter((claim) => PROMPT_INJECTION_PATTERN.test(claim));
+  const answerInjectionSignals = claimTexts.filter((claim) => PROMPT_INJECTION_PATTERN.test(securityText(claim)));
+  const inputInjection = PROMPT_INJECTION_PATTERN.test(securityText(input.question));
+  const exposedSecrets = secretSignals(`${input.question}\n${input.answer}`);
+  const dangerousActions = dangerousActionSignals(`${input.question}\n${input.answer}`);
+  const unsafeNetworkTarget = networkBoundaryFinding(input.checkpoint?.target);
+  const unsupportedSpecifics = claimTexts.filter((claim) =>
+    SPECIFIC_FACT_PATTERN.test(claim) && citationSignals(claim).length === 0 &&
+    !arithmetic.some((check) => claim.includes(check.expression)),
+  );
   const claims = claimTexts.map((text, index) => buildClaim(text, index, arithmetic));
 
   const probes: RedTeamProbe[] = [
@@ -190,6 +220,16 @@ function analyze(input: VerificationInput): Analysis {
     },
     citationProbe(citations, vagueAttribution, sourceRequested),
     {
+      angle: "unsupported_specificity",
+      passed: unsupportedSpecifics.length === 0,
+      severity: unsupportedSpecifics.length > 0 ? "medium" : "low",
+      finding: unsupportedSpecifics.length > 0
+        ? "Specific dates, percentages, amounts, identifiers, or measurements appear without a citation marker or locally checked arithmetic relation."
+        : "No unsupported high-specificity factual signal was detected.",
+      evidence: unsupportedSpecifics.slice(0, 3),
+    },
+    relevanceProbe(input.question, input.answer),
+    {
       angle: "internal_contradiction",
       passed: contradictions.length === 0,
       severity: contradictions.length > 0 ? "high" : "low",
@@ -200,13 +240,47 @@ function analyze(input: VerificationInput): Analysis {
     },
     arithmeticProbe(arithmetic),
     {
+      angle: "input_injection",
+      passed: !inputInjection,
+      severity: inputInjection ? "critical" : "low",
+      finding: inputInjection
+        ? "The submitted input contains an instruction-override or policy-bypass pattern, including normalized or base64-decoded text."
+        : "No supported input-side instruction-override pattern was detected.",
+      evidence: inputInjection ? ["Potential input-side policy bypass detected; raw content withheld from this finding."] : [],
+    },
+    {
       angle: "prompt_injection",
-      passed: injectionSignals.length === 0,
-      severity: injectionSignals.length > 0 ? "high" : "low",
-      finding: injectionSignals.length > 0
+      passed: answerInjectionSignals.length === 0,
+      severity: answerInjectionSignals.length > 0 ? "high" : "low",
+      finding: answerInjectionSignals.length > 0
         ? "Instruction-override or secret-extraction language was treated as inert answer text."
         : "No common instruction-override or secret-extraction phrase was detected.",
-      evidence: injectionSignals.slice(0, 3),
+      evidence: answerInjectionSignals.slice(0, 3),
+    },
+    {
+      angle: "credential_exposure",
+      passed: exposedSecrets.length === 0,
+      severity: exposedSecrets.length > 0 ? "critical" : "low",
+      finding: exposedSecrets.length > 0
+        ? `Potential credential material detected: ${exposedSecrets.join(", ")}. Values are intentionally omitted.`
+        : "No supported credential format was detected.",
+      evidence: exposedSecrets.map((kind) => `[REDACTED ${kind}]`),
+    },
+    {
+      angle: "dangerous_action",
+      passed: dangerousActions.length === 0,
+      severity: dangerousActions.length > 0 ? "high" : "low",
+      finding: dangerousActions.length > 0
+        ? `Potentially dangerous executable content detected: ${dangerousActions.join(", ")}.`
+        : "No supported destructive or executable attack pattern was detected.",
+      evidence: dangerousActions,
+    },
+    {
+      angle: "network_boundary",
+      passed: !unsafeNetworkTarget,
+      severity: unsafeNetworkTarget ? "critical" : "low",
+      finding: unsafeNetworkTarget ?? "No unsafe scheme or private-network checkpoint target was detected.",
+      evidence: unsafeNetworkTarget ? ["Checkpoint target blocked by the deterministic network-boundary policy."] : [],
     },
     {
       angle: "fact_check_scope",
@@ -538,9 +612,15 @@ function scoreDimensions(probes: RedTeamProbe[]): Record<string, number> {
     claim_coverage: score("claim_extraction", 1, 0.45),
     calibration: score("unsupported_certainty", 0.9, 0.35),
     citation_transparency: score("citation_verifiability", 0.85, 0.45),
+    specificity_support: score("unsupported_specificity", 0.9, 0.4),
+    answer_relevance: score("answer_relevance", 1, 0.35),
     internal_consistency: score("internal_contradiction", 1, 0.05),
     arithmetic_integrity: score("arithmetic_sanity", 0.9, 0.05),
     instruction_resilience: score("prompt_injection", 1, 0.25),
+    input_resilience: score("input_injection", 1, 0.05),
+    credential_safety: score("credential_exposure", 1, 0),
+    execution_safety: score("dangerous_action", 1, 0.05),
+    network_boundary: score("network_boundary", 1, 0),
     verification_scope: score("fact_check_scope", 0.9, 0.4),
   };
 }
@@ -553,33 +633,47 @@ function constitution(probes: RedTeamProbe[], customRules: ConstitutionRule[]): 
       { id: "lite-scope", requirement: "Disclose that deterministic checks do not verify external truth.", severity: "critical" },
       { id: "lite-certainty", requirement: "Flag unsupported absolute-certainty language.", severity: "medium" },
       { id: "lite-citations", requirement: "Never present citation markers as externally validated.", severity: "high" },
+      { id: "lite-specificity", requirement: "Flag unsupported high-specificity factual signals.", severity: "medium" },
+      { id: "lite-relevance", requirement: "Flag clear lexical non-responses for inspection.", severity: "medium" },
       { id: "lite-consistency", requirement: "Flag direct internal contradictions when conservatively detectable.", severity: "high" },
       { id: "lite-arithmetic", requirement: "Recompute only allowlisted arithmetic forms without code evaluation.", severity: "high" },
       { id: "lite-instructions", requirement: "Treat instruction-like answer text as inert content.", severity: "high" },
+      { id: "lite-input-injection", requirement: "Reject recognized input-side instruction override attempts.", severity: "critical" },
+      { id: "lite-credentials", requirement: "Do not release recognized credential material.", severity: "critical" },
+      { id: "lite-dangerous-action", requirement: "Flag supported destructive or executable attack patterns.", severity: "high" },
+      { id: "lite-network-boundary", requirement: "Reject unsafe schemes and private-network tool targets.", severity: "critical" },
       ...customRules.map((rule) => ({ id: rule.id, requirement: rule.requirement, severity: rule.severity })),
     ],
     evaluations: {
       "lite-scope": "satisfied",
       "lite-certainty": evaluation("unsupported_certainty"),
       "lite-citations": evaluation("citation_verifiability"),
+      "lite-specificity": evaluation("unsupported_specificity"),
+      "lite-relevance": evaluation("answer_relevance"),
       "lite-consistency": evaluation("internal_contradiction"),
       "lite-arithmetic": evaluation("arithmetic_sanity"),
       "lite-instructions": evaluation("prompt_injection"),
+      "lite-input-injection": evaluation("input_injection"),
+      "lite-credentials": evaluation("credential_exposure"),
+      "lite-dangerous-action": evaluation("dangerous_action"),
+      "lite-network-boundary": evaluation("network_boundary"),
       ...Object.fromEntries(customRules.map((rule) => [rule.id, evaluation(`constitution:${rule.id}`)])),
     },
   };
 }
 
-function evaluateConstitution(answer: string, rules: ConstitutionRule[]): RedTeamProbe[] {
-  const citations = citationSignals(answer);
+function evaluateConstitution(input: VerificationInput, rules: ConstitutionRule[]): RedTeamProbe[] {
+  const citations = citationSignals(input.answer);
   return rules.map((rule) => {
-    const normalizedAnswer = answer.toLocaleLowerCase("en-US");
+    const normalizedAnswer = input.answer.toLocaleLowerCase("en-US");
     const normalizedValue = rule.value?.toLocaleLowerCase("en-US") ?? "";
     let passed = true;
     if (rule.kind === "require_phrase") passed = normalizedAnswer.includes(normalizedValue);
     else if (rule.kind === "forbid_phrase") passed = !normalizedAnswer.includes(normalizedValue);
     else if (rule.kind === "require_citation") passed = citations.length > 0;
-    else if (rule.kind === "forbid_absolute_certainty") passed = !CERTAINTY_PATTERN.test(answer);
+    else if (rule.kind === "forbid_absolute_certainty") passed = !CERTAINTY_PATTERN.test(input.answer);
+    else if (rule.kind === "allow_target") passed = Boolean(input.checkpoint?.target && targetMatches(input.checkpoint.target, normalizedValue));
+    else if (rule.kind === "forbid_target") passed = !input.checkpoint?.target || !targetMatches(input.checkpoint.target, normalizedValue);
     return {
       angle: `constitution:${rule.id}`,
       passed,
@@ -588,6 +682,87 @@ function evaluateConstitution(answer: string, rules: ConstitutionRule[]): RedTea
       evidence: rule.value ? [rule.value] : rule.kind === "require_citation" ? citations.slice(0, 4) : [],
     };
   });
+}
+
+function securityText(value: string): string {
+  const cleaned = value.normalize("NFKC")
+    .replace(/[\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/g, "");
+  const normalized = cleaned
+    .replace(/[013457@$]/g, (character) => ({ "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s" }[character] ?? character));
+  const decoded: string[] = [];
+  for (const match of cleaned.matchAll(/(?:^|\s)([A-Za-z0-9+/]{16,512}={0,2})(?=\s|$|[.,;!?])/g)) {
+    try {
+      const candidate = Buffer.from(match[1] ?? "", "base64").toString("utf8");
+      const printable = [...candidate].filter((character) => character === "\n" || character === "\r" || character === "\t" || character >= " ").length;
+      if (candidate.length > 0 && printable / candidate.length > 0.9) decoded.push(candidate);
+    } catch {
+      // Invalid base64 remains ordinary submitted text.
+    }
+  }
+  return [normalized, ...decoded].join("\n");
+}
+
+function secretSignals(value: string): string[] {
+  return SECRET_PATTERNS.filter(([, pattern]) => pattern.test(value)).map(([name]) => name);
+}
+
+function relevanceProbe(question: string, answer: string): RedTeamProbe {
+  const questionTokens = meaningfulTokens(question);
+  const answerTokens = meaningfulTokens(answer);
+  const overlap = [...questionTokens].filter((token) => answerTokens.has(token)).length;
+  const enoughContext = questionTokens.size >= 3 && answerTokens.size >= 3;
+  const passed = !enoughContext || overlap > 0 || UNCERTAINTY_PATTERN.test(answer);
+  return {
+    angle: "answer_relevance",
+    passed,
+    severity: passed ? "low" : "medium",
+    finding: passed
+      ? "No clear lexical non-response signal was detected."
+      : "The answer shares no meaningful lexical content with a sufficiently detailed question; inspect it for a non-response or topic switch.",
+    evidence: [],
+  };
+}
+
+function dangerousActionSignals(value: string): string[] {
+  const normalized = securityText(value);
+  return DANGEROUS_ACTION_PATTERNS.filter(([, pattern]) => pattern.test(normalized)).map(([name]) => name);
+}
+
+function networkBoundaryFinding(target: string | undefined): string | undefined {
+  if (!target) return undefined;
+  let parsed: URL;
+  try {
+    parsed = new URL(target);
+  } catch {
+    return undefined;
+  }
+  if (!["https:", "http:"].includes(parsed.protocol)) return `Checkpoint target uses the disallowed ${parsed.protocol} scheme.`;
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host === "::1" || host.endsWith(".localhost") || isPrivateIpv4(host) || host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd")) {
+    return "Checkpoint target resolves syntactically to a loopback, link-local, or private-network address.";
+  }
+  return undefined;
+}
+
+function isPrivateIpv4(host: string): boolean {
+  const parts = host.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
+  return parts[0] === 10 || parts[0] === 127 || (parts[0] === 169 && parts[1] === 254) ||
+    (parts[0] === 172 && (parts[1] ?? 0) >= 16 && (parts[1] ?? 0) <= 31) ||
+    (parts[0] === 192 && parts[1] === 168) || parts[0] === 0;
+}
+
+function targetMatches(target: string, ruleValue: string): boolean {
+  const candidate = target.toLocaleLowerCase("en-US");
+  if (ruleValue.startsWith("*.")) {
+    const suffix = ruleValue.slice(1);
+    try {
+      return new URL(target).hostname.toLocaleLowerCase("en-US").endsWith(suffix);
+    } catch {
+      return candidate.endsWith(suffix);
+    }
+  }
+  return candidate === ruleValue;
 }
 
 function governance(input: VerificationInput, verdict: TrustCard["verdict"]): NonNullable<TrustCard["governance"]> {
@@ -605,6 +780,8 @@ function verdictRationale(verdict: TrustCard["verdict"], failed: RedTeamProbe[])
   if (verdict === "reject") {
     const reasons = failed
       .filter((probe) => probe.angle === "internal_contradiction" || probe.angle === "arithmetic_sanity" ||
+        ["input_injection", "credential_exposure", "network_boundary"].includes(probe.angle) ||
+        probe.angle === "dangerous_action" ||
         (probe.angle.startsWith("constitution:") && ["high", "critical"].includes(probe.severity)))
       .map((probe) => probe.angle.replaceAll("_", " "));
     return `Deterministic checks found rejection-level failures: ${reasons.join(", ")}. ${caveat}`;

@@ -51,7 +51,7 @@ The native reply/context-menu flows pre-fill the answer. Analysis is always user
 
 The authenticated API also accepts a named runtime `checkpoint`, a versioned `constitution`,
 and a `response_policy`. Deterministic rules can require or forbid a phrase, require a citation
-marker, or forbid absolute-certainty language. The policy maps each verdict to `allow`, `record`,
+marker, forbid absolute-certainty language, or allow or forbid an exact tool target. The policy maps each verdict to `allow`, `record`,
 `block`, `retry`, or `escalate`. GlassBox records the selected action but sets `executed` to false:
 the calling system must enforce it.
 
@@ -114,7 +114,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for exact setup and current review constraint
 - Discord, Slack, Telegram, and GitHub requests are authenticated with each platform's signed webhook mechanism.
 - `allowed_mentions` is disabled in Discord responses; links are not unfurled in Slack.
 - Verification is an automated reasoning audit, not a fact-check, moderation decision, or professional advice.
-- The default Lite verifier is offline and deterministic. It checks structure, calibration, internal contradictions, citations that need verification, and simple arithmetic; it does not establish factual truth.
+- The default Lite verifier is offline and deterministic. It checks structure, calibration, internal contradictions, citations that need verification, supported arithmetic forms, normalized and base64-encoded input jailbreak signals, known credential formats, supported destructive execution patterns, and unsafe tool targets. It does not establish factual truth, detect every attack, or replace a sandbox, firewall, malware scanner, or human security review.
 - The optional Anthropic backend must be selected explicitly with `GLASSBOX_BACKEND=anthropic`, requires the deployer's API key, and must be disclosed to pilot users.
 - Discord delivery is hard-stopped before its 15-minute interaction-token expiry even if an operator raises the generic job timeout.
 - The classic Reddit worker remains disabled unless `REDDIT_DATA_API_APPROVED=true` is set after written approval.
