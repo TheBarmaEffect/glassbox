@@ -102,3 +102,30 @@ test("does not call fetch and produces stable semantic output and hashes", async
     globalThis.fetch = originalFetch;
   }
 });
+
+test("evaluates versioned rules at a tool checkpoint and recommends a response", async () => {
+  const card = await verifier.verify({
+    platform: "api", question: "May this proceed?", answer: "Send payment. This is guaranteed safe.",
+    checkpoint: { id: "tool-7", type: "tool_call", target: "bank.transfer" },
+    constitution: { version: "payments/1", rules: [
+      { id: "approval", requirement: "Payment must mention human approval.", kind: "require_phrase", value: "human approval", severity: "critical" },
+      { id: "certainty", requirement: "Do not guarantee safety.", kind: "forbid_absolute_certainty", severity: "high" },
+    ] },
+    response_policy: { trust: "allow", caution: "escalate", reject: "block" },
+  });
+  assert.equal(card.verdict, "reject");
+  assert.equal(card.governance?.response.action, "block");
+  assert.equal(card.governance?.response.executed, false);
+  assert.equal(card.constitution.evaluations?.approval, "violated");
+  assert.match(card.verdict_rationale, /constitution:approval/);
+});
+
+test("governance context changes the audit hash", async () => {
+  const base = { platform: "api" as const, question: "Check", answer: "Human approval is required." };
+  const first = await verifier.verify(base);
+  const governed = await verifier.verify({ ...base, constitution: { version: "v2", rules: [
+    { id: "approval", requirement: "Require approval.", kind: "require_phrase", value: "human approval", severity: "critical" },
+  ] } });
+  assert.notEqual(first.audit.inputs_hash, governed.audit.inputs_hash);
+  assert.equal(governed.constitution.evaluations?.approval, "satisfied");
+});

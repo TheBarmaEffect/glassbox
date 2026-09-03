@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { normalizeInput } from "./parser.js";
 import type {
   Claim,
+  ConstitutionRule,
   RedTeamProbe,
   TrustCard,
   VerificationInput,
@@ -93,9 +94,12 @@ export class GlassboxLiteVerifier implements Verifier {
   async verify(raw: VerificationInput): Promise<TrustCard> {
     const input = normalizeInput(raw);
     const analysis = analyze(input);
+    const customRules = input.constitution?.rules ?? [];
+    analysis.probes.push(...evaluateConstitution(input.answer, customRules));
     const failed = analysis.probes.filter((probe) => !probe.passed);
     const decisiveFailure = failed.some(
-      (probe) => probe.angle === "internal_contradiction" || probe.angle === "arithmetic_sanity",
+      (probe) => probe.angle === "internal_contradiction" || probe.angle === "arithmetic_sanity" ||
+        (probe.angle.startsWith("constitution:") && ["high", "critical"].includes(probe.severity)),
     );
     const verdict: TrustCard["verdict"] = decisiveFailure
       ? "reject"
@@ -132,7 +136,8 @@ export class GlassboxLiteVerifier implements Verifier {
         pass_rate: round(analysis.probes.filter((probe) => probe.passed).length / analysis.probes.length),
         highest_severity: highestSeverity,
       },
-      constitution: constitution(analysis.probes),
+      constitution: constitution(analysis.probes, customRules),
+      governance: governance(input, verdict),
       audit: {
         log_id: `lite-${hash.slice(0, 16)}`,
         generated_at: this.now().toISOString(),
@@ -540,7 +545,7 @@ function scoreDimensions(probes: RedTeamProbe[]): Record<string, number> {
   };
 }
 
-function constitution(probes: RedTeamProbe[]): TrustCard["constitution"] {
+function constitution(probes: RedTeamProbe[], customRules: ConstitutionRule[]): TrustCard["constitution"] {
   const evaluation = (angle: string): "satisfied" | "violated" =>
     probes.find((probe) => probe.angle === angle)?.passed === false ? "violated" : "satisfied";
   return {
@@ -551,6 +556,7 @@ function constitution(probes: RedTeamProbe[]): TrustCard["constitution"] {
       { id: "lite-consistency", requirement: "Flag direct internal contradictions when conservatively detectable.", severity: "high" },
       { id: "lite-arithmetic", requirement: "Recompute only allowlisted arithmetic forms without code evaluation.", severity: "high" },
       { id: "lite-instructions", requirement: "Treat instruction-like answer text as inert content.", severity: "high" },
+      ...customRules.map((rule) => ({ id: rule.id, requirement: rule.requirement, severity: rule.severity })),
     ],
     evaluations: {
       "lite-scope": "satisfied",
@@ -559,7 +565,38 @@ function constitution(probes: RedTeamProbe[]): TrustCard["constitution"] {
       "lite-consistency": evaluation("internal_contradiction"),
       "lite-arithmetic": evaluation("arithmetic_sanity"),
       "lite-instructions": evaluation("prompt_injection"),
+      ...Object.fromEntries(customRules.map((rule) => [rule.id, evaluation(`constitution:${rule.id}`)])),
     },
+  };
+}
+
+function evaluateConstitution(answer: string, rules: ConstitutionRule[]): RedTeamProbe[] {
+  const citations = citationSignals(answer);
+  return rules.map((rule) => {
+    const normalizedAnswer = answer.toLocaleLowerCase("en-US");
+    const normalizedValue = rule.value?.toLocaleLowerCase("en-US") ?? "";
+    let passed = true;
+    if (rule.kind === "require_phrase") passed = normalizedAnswer.includes(normalizedValue);
+    else if (rule.kind === "forbid_phrase") passed = !normalizedAnswer.includes(normalizedValue);
+    else if (rule.kind === "require_citation") passed = citations.length > 0;
+    else if (rule.kind === "forbid_absolute_certainty") passed = !CERTAINTY_PATTERN.test(answer);
+    return {
+      angle: `constitution:${rule.id}`,
+      passed,
+      severity: passed ? "low" : rule.severity,
+      finding: passed ? `Constitution rule ${rule.id} was satisfied.` : `Constitution rule ${rule.id} was violated: ${rule.requirement}`,
+      evidence: rule.value ? [rule.value] : rule.kind === "require_citation" ? citations.slice(0, 4) : [],
+    };
+  });
+}
+
+function governance(input: VerificationInput, verdict: TrustCard["verdict"]): NonNullable<TrustCard["governance"]> {
+  const defaults = { trust: "allow", caution: "record", reject: "block" } as const;
+  const action = input.response_policy?.[verdict] ?? defaults[verdict];
+  return {
+    checkpoint: input.checkpoint ?? { id: "submitted-answer", type: "final_output" },
+    constitution_version: input.constitution?.version ?? "glassbox-lite/builtin-v1",
+    response: { action, executed: false, rationale: `The configured response policy maps verdict ${verdict} to ${action}. GlassBox reports this action; the caller must enforce it.` },
   };
 }
 
@@ -567,9 +604,10 @@ function verdictRationale(verdict: TrustCard["verdict"], failed: RedTeamProbe[])
   const caveat = "This is not a fact-check; external facts and citations remain unverified.";
   if (verdict === "reject") {
     const reasons = failed
-      .filter((probe) => probe.angle === "internal_contradiction" || probe.angle === "arithmetic_sanity")
+      .filter((probe) => probe.angle === "internal_contradiction" || probe.angle === "arithmetic_sanity" ||
+        (probe.angle.startsWith("constitution:") && ["high", "critical"].includes(probe.severity)))
       .map((probe) => probe.angle.replaceAll("_", " "));
-    return `Deterministic checks found a direct ${reasons.join(" and ")} failure. ${caveat}`;
+    return `Deterministic checks found rejection-level failures: ${reasons.join(", ")}. ${caveat}`;
   }
   if (verdict === "caution") {
     const reasons = failed.slice(0, 3).map((probe) => probe.angle.replaceAll("_", " "));
@@ -583,6 +621,9 @@ function inputsHash(input: VerificationInput): string {
     question: input.question,
     answer: input.answer,
     intents: input.intents ?? [],
+    checkpoint: input.checkpoint ?? null,
+    constitution: input.constitution ?? null,
+    response_policy: input.response_policy ?? null,
   })).digest("hex");
 }
 

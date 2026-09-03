@@ -49,6 +49,12 @@ question || answer || optional intent 1; optional intent 2
 
 The native reply/context-menu flows pre-fill the answer. Analysis is always user-invoked. Discord and Slack results are private by default. Discord supports an explicit public result; Slack publishes only when `--public` is the first command argument. Telegram requires `--consent` as the first argument for every audit.
 
+The authenticated API also accepts a named runtime `checkpoint`, a versioned `constitution`,
+and a `response_policy`. Deterministic rules can require or forbid a phrase, require a citation
+marker, or forbid absolute-certainty language. The policy maps each verdict to `allow`, `record`,
+`block`, `retry`, or `escalate`. GlassBox records the selected action but sets `executed` to false:
+the calling system must enforce it.
+
 ## Architecture
 
 ```text

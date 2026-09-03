@@ -28,6 +28,7 @@ export function formatTrustCard(card: TrustCard, maxChars = 1_900): string {
     truncate(safeDynamic(card.verdict_rationale), 420),
     weakest ? `Weakest dimensions: ${safeDynamic(weakest)}` : "",
     `Claims: ${card.claims.length} · Red-team pass rate: ${(card.red_team.pass_rate * 100).toFixed(0)}%`,
+    card.governance ? `Checkpoint: ${safeDynamic(card.governance.checkpoint.type)} · Recommended response: ${safeDynamic(card.governance.response.action).toUpperCase()}` : "",
   ].filter(Boolean);
 
   if (failures.length > 0) {

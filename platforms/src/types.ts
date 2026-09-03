@@ -6,7 +6,17 @@ export interface VerificationInput {
   answer: string;
   intents?: string[];
   platform: Platform;
+  checkpoint?: RuntimeCheckpoint;
+  constitution?: RuntimeConstitution;
+  response_policy?: ResponsePolicy;
 }
+
+export type RuleKind = "require_phrase" | "forbid_phrase" | "require_citation" | "forbid_absolute_certainty";
+export interface ConstitutionRule { id: string; requirement: string; kind: RuleKind; value?: string; severity: RedTeamProbe["severity"]; }
+export interface RuntimeConstitution { version: string; rules: ConstitutionRule[]; }
+export interface RuntimeCheckpoint { id: string; type: "input" | "model_output" | "agent_step" | "tool_call" | "final_output"; actor?: string; target?: string; }
+export type ResponseAction = "allow" | "record" | "block" | "retry" | "escalate";
+export interface ResponsePolicy { trust?: ResponseAction; caution?: ResponseAction; reject?: ResponseAction; }
 
 export interface Claim {
   id: string;
@@ -45,6 +55,11 @@ export interface TrustCard {
   constitution: {
     rules: Array<{ id: string; requirement: string; severity: string }>;
     evaluations?: Record<string, "satisfied" | "violated" | "not_triggered">;
+  };
+  governance?: {
+    checkpoint: RuntimeCheckpoint;
+    constitution_version: string;
+    response: { action: ResponseAction; executed: false; rationale: string };
   };
   audit: {
     log_id: string;
