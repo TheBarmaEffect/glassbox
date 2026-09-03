@@ -42,6 +42,12 @@ export function buildServer(service: VerificationService): Express {
     response.setHeader("x-content-type-options", "nosniff");
     response.setHeader("referrer-policy", "no-referrer");
     response.setHeader("cache-control", "no-store");
+    response.setHeader("strict-transport-security", "max-age=31536000; includeSubDomains");
+    response.setHeader("permissions-policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+    response.setHeader(
+      "content-security-policy",
+      "default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'",
+    );
     next();
   });
   app.use(express.raw({ type: "*/*", limit: "128kb" }));
@@ -86,12 +92,21 @@ export function buildServer(service: VerificationService): Express {
         "allow_target", "forbid_target",
       ],
       response_actions: ["allow", "record", "block", "retry", "escalate"],
-      response_is_enforced_by_gateway: false,
+      response_endpoints: {
+        "/api/v1/verify": "advisory",
+        "/api/v1/govern": "synchronous release gate",
+      },
+      governance_gate: {
+        releases: ["allow", "record"],
+        withholds: ["block", "retry", "escalate"],
+        caller_next_steps: ["retry", "human_review"],
+      },
       external_fact_verification: false,
       raw_content_persistence: false,
       limitations: [
         "Pattern-based checks do not detect every attack or hallucination.",
-        "The caller must enforce the recommended response.",
+        "The advisory verify endpoint does not enforce its recommended response.",
+        "The govern endpoint withholds retry and escalation cases but does not itself regenerate output or operate a human-review queue.",
         "The gateway is not a sandbox, firewall, malware scanner, or professional-advice system.",
       ],
     });

@@ -10,7 +10,7 @@ One deployable Node 20 service that brings the published GlassBox v1 Trust Card 
 - Reddit: disabled-by-default classic bridge for explicitly approved Data API pilots; Devvit is the primary path
 - ChatGPT and Claude: public MCP Streamable HTTP at `/mcp`
 - Web browsers and Notion: installable/embeddable zero-secret app at `/app`
-- Any approved platform: authenticated `POST /api/v1/verify`
+- Any approved platform: authenticated advisory `POST /api/v1/verify` or blocking gate `POST /api/v1/govern`
 
 The gateway uses the deterministic GlassBox Lite verifier by default and produces compact platform-native Trust Cards without a paid model API, API key, or network lookup. It does not monitor conversations or persist raw question/answer content. The published `@glassbox-framework/mcp@1.0.3`/Anthropic verifier remains an explicit opt-in backend for operators who provide their own key.
 
@@ -52,8 +52,13 @@ The native reply/context-menu flows pre-fill the answer. Analysis is always user
 The authenticated API also accepts a named runtime `checkpoint`, a versioned `constitution`,
 and a `response_policy`. Deterministic rules can require or forbid a phrase, require a citation
 marker, forbid absolute-certainty language, or allow or forbid an exact tool target. The policy maps each verdict to `allow`, `record`,
-`block`, `retry`, or `escalate`. GlassBox records the selected action but sets `executed` to false:
-the calling system must enforce it.
+`block`, `retry`, or `escalate`. The advisory `/verify` response records the selected action but
+sets `executed` to false because its caller remains responsible for enforcement.
+
+`POST /api/v1/govern` runs the same audit as `/api/v1/verify` and adds a synchronous release gate.
+It releases `allow` and `record` outcomes and withholds `block`, `retry`, and `escalate` outcomes.
+The response states the applied gate effect and the next step. The gateway does not claim to
+regenerate an answer or operate a human-review queue; callers handle those explicit next steps.
 
 ## Architecture
 
