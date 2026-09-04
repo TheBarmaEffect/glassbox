@@ -1,5 +1,18 @@
 # Python-side verification
 
+> **Update 2026-09-04.** Section 3 has been re-run and both of its recorded defects have
+> changed status. `core/src/` is **no longer empty** — it now holds 241 files including a
+> `glassbox/math/` package with `aggregate.py` and `entropy.py`, so defect 1 (test_math.py
+> uncollectable) no longer reproduces. Defect 2 **still reproduces**. Running `pytest
+> core/tests` against `core/src/` in a clean venv with `pydantic`, `networkx`, `numpy` and
+> `rich` gives **182 collected, 180 passed, 1 failed, 1 skipped**; the failure is the same
+> `test_verified_corpus_structural_expectations` fixture mismatch (`PARTIAL` expected,
+> `COMPLETE` returned). The heavy NLP dependencies remain lazily imported and were not
+> installed, so this exercises the lazy path rather than a full-model run. The "157 test
+> functions" count below is a static count of `def test_` declarations, **not** a passing
+> count, and the repository's "157 passing" claim is not reproducible at this commit. See
+> `../evidence-ledger.md` C4b and `../limitations.md` item 16.
+
 Run 2026-08-16. Answers the question "was anything other than the Lite verifier
 actually tested?" Previously the answer was no.
 
@@ -60,10 +73,13 @@ count and pass rate are reported here for the first time.
    fixture declares `expected_analysis_state = PARTIAL`; the 0.3.0 engine
    returns `COMPLETE`.
 
-Both point the same way: **the checked-in tests are newer than the checked-in
-wheel, and `core/src/` is empty**, so there is no source tree to reconcile them
-against. This is a reproducibility defect in the local repository, not
+Both point the same way: **the checked-in tests were newer than the checked-in
+wheel, and `core/src/` was empty at the time of this run**, so there was no source tree to
+reconcile them against. This was a reproducibility defect in the local repository, not
 necessarily a defect in the package.
+
+**Superseded 2026-09-04:** `core/src/` is now populated (241 files) and defect 1 no longer
+reproduces. Defect 2 does. See the update note at the top of this file.
 
 ## Bearing on the paper
 
@@ -74,5 +90,6 @@ system under test and the 108-test platform figure is unaffected. What changes:
 - Any claim about the `core/` package must carry the caveat that its test suite
   and its distributed wheel are out of step, and that its source tree is missing
   locally.
-- The `core/` package's 157 tests must **not** be added to the platform total.
-  They belong to a different system.
+- The `core/` package's tests must **not** be added to the platform total. They belong to a
+  different system. As of 2026-09-04 that suite is 182 collected / 180 passed / 1 failed /
+  1 skipped, and the platform-layer total is 302 — see `test-coverage.md`.

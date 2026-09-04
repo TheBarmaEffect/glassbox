@@ -929,6 +929,13 @@ function stripOnce(token: string): string {
   // stays "retry", so an inflected pair lands in different buckets and a plain
   // contradiction between them is invisible. Must precede the "es" rule, which would
   // otherwise consume the "es" and leave the "i".
+  //
+  // The guard is 4 rather than 5 because that is where the "y" rewrite starts being the
+  // right analysis. At five letters and up an "ies" word is an inflection of a "y" stem
+  // ("tries" to "try", "flies" to "fly"), so a stricter guard would lose real pairs. At
+  // exactly four it is usually an "ie" stem instead ("ties", "dies", "lies", "pies"),
+  // whose lemma the generic "s" rule below already gets right; rewriting those to "ty"
+  // or "dy" would break a stem that currently works.
   if (token.length > 4 && token.endsWith("ies")) return `${token.slice(0, -3)}y`;
   if (token.length > 5 && token.endsWith("ing")) return token.slice(0, -3);
   if (token.length > 4 && token.endsWith("ed")) return token.slice(0, -2);

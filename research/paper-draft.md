@@ -40,7 +40,11 @@ report what deployment actually costs. The public Trust Card projection withhold
 submitted content and every verifier-internal field, verified by planting sentinel
 tokens in a live request and confirming their absence from the response. All provider
 routes fail closed on unsigned requests. At commit `d852db0`, 108 automated tests pass
-across six suites and twelve CI jobs succeed on the merged main commit.
+across six suites and twelve CI jobs succeed on the merged main commit.<!-- Figure check
+before submission: re-verified 2026-09-04, the gateway suite is at 266 and the locally
+re-run platform-layer total is 302. Either re-anchor the paper to a newer commit or keep
+`d852db0` and say so explicitly wherever the number appears. See
+evidence-ledger.md C4a. -->
 
 Our most transferable contribution is methodological. Deployment claims in this area
 routinely collapse five distinct states into the word "available." We separate
@@ -99,8 +103,13 @@ and that no vocabulary distinguished them. We introduce a five-level evidence sc
 
 **Contributions.**
 
-1. A deterministic, zero-paid-API structural auditor with seven bounded, explainable
-   probes, demonstrated byte-identical on a live public endpoint.
+1. A deterministic, zero-paid-API structural auditor with bounded, explainable probes,
+   demonstrated byte-identical on a live public endpoint. **Probe count, verified
+   2026-09-04:** the live gateway publishes **13** deterministic answer probes and **6**
+   tool-invocation probes; this repository declares 14 deterministic (the extra,
+   `citation_resolvability`, was deployed on 2026-09-04). The "seven
+   probes" figure is the 2026-08-11 snapshot and must not be used unqualified. Only five
+   probes have any accuracy measurement.
 2. A privacy-minimized public Trust Card projection that withholds submitted content and
    all verifier-internal metadata, verified by planted-token testing against production.
 3. A cross-platform gateway preserving provider-native authentication, explicit
@@ -364,6 +373,12 @@ keeps those two apart.
 At commit `d852db0`, 108 automated tests pass across six heterogeneous suites: gateway
 69, Notion 12, browser extension 10, Reddit Devvit 9, VS Code 5, JetBrains 3. This is
 the platform-layer total and not the repository's whole test count.
+
+> **Snapshot note (2026-09-04).** These are the `d852db0` figures and must be presented as
+> such. Re-run on 2026-09-04 the gateway suite is **266/266** and the locally re-run
+> platform-layer total is **302**, plus JetBrains 3 on CI evidence. The two snapshots must
+> never be mixed, and the Python core suite (`core/tests`: 182 collected, 180 pass, 1 fail,
+> 1 skip) belongs to neither total.
 
 The gateway suite is weighted toward adversarial and operational behaviour rather than
 happy paths: forged and unsigned requests, wrong events, missing delivery identifiers,

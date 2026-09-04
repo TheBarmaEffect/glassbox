@@ -59,8 +59,13 @@ cd ../platforms/ide/vscode-glassbox && npm ci && npm test # 5/5 pass
 **JetBrains (3/3) was not re-run locally**, it is a Gradle/Kotlin project and no JVM
 toolchain run was performed. It is cited at **L2 on CI evidence only**.
 
-Platform-layer total: **69 + 9 + 10 + 12 + 5 + 3 = 108**. This is *not* the whole
-repository's test count.
+Platform-layer total **at `d852db0`**: **69 + 9 + 10 + 12 + 5 + 3 = 108**. This is *not*
+the whole repository's test count.
+
+> **Stale as a current figure, verified 2026-09-04.** The gateway suite has grown from 69
+> to **266**, so the current platform-layer total is **266 + 12 + 10 + 9 + 5 = 302**
+> locally re-run, plus JetBrains 3 on CI evidence only. Quote 108 only against `d852db0`.
+> See `tables/test-coverage.md` and `evidence-ledger.md` C4a.
 
 ## Live production canaries (re-executed 2026-08-11)
 

@@ -8,21 +8,37 @@ a CI record, a public URL, or a labelled operator canary.
 2026-08-11T09:46:13Z). Release `integrations-v0.1.0`. Main-branch CI run
 **31479201334** (12/12 jobs success). Audited 2026-08-11.
 
+**Re-verified 2026-09-04** in a documentation-reconciliation pass. What moved:
+
+- The gateway suite grew **69 → 266**, so the platform-layer total of 108 is stale; the
+  re-run total is **302** locally plus 3 JetBrains on CI evidence. See `evidence-ledger.md`
+  C4a and `tables/test-coverage.md`.
+- **The deployed gateway is a governor, not an observer.** `/api/v1/govern` withholds
+  output synchronously. Ledger C21–C22.
+- **Tool-invocation assurance and offline citation screening** are new claims with new
+  limitations. Ledger C23–C24, `limitations.md` items 10–11.
+- **`/api/v1/capabilities` and `/api/v1/metrics`** are unauthenticated transparency
+  artifacts. Ledger C25.
+- **The HPS AUROC is a pilot, not a validation**, and belongs to the Python core. Ledger
+  C27, `limitations.md` item 12.
+- **The live instance lags this repository** on `citation_resolvability`. Ledger C26.
+
 ## Files
 
 | File | Purpose |
 |---|---|
 | `paper-outline.md` | Thesis, RQ1-RQ5, contributions C-I-C-V, 21-section plan, negative-results section |
-| `evidence-ledger.md` | Claims C1-C20 with evidence level, source, mandatory limitation, safe-for placement; plus the list of permanently refused claims |
+| `evidence-ledger.md` | Claims C1-C28 with evidence level, source, mandatory limitation, safe-for placement; plus the dated list of refused claims |
 | `platform-status.md` | **Canonical** L0-L4 availability table per surface |
 | `reproducibility.md` | Commands re-executed and their results, live canaries, and the CI-run correction |
 | `threat-model.md` | Adversaries, controls, what was actually verified, non-goals |
 | `limitations.md` | Method, evidence, deployment and privacy limitations; threats to validity |
 | `experiment-plan.md` | Benchmark plan, **partly executed**. Strata 1-4 and part of 5 are done; strata 6-7 and the annotation protocol are not |
-| `benchmark/` | **GBSA-1**, the labelled per-probe benchmark: seeded generators, 112-item development split, 75-item held-out split, scoring code, determinism runs, `RESULTS.md` |
+| `benchmark/` | **GBSA-1**, the labelled per-probe benchmark: seeded generators, 112-item development split, 75-item held-out split, scoring code, determinism runs, `RESULTS.md`. Contains **no fabricated-identifier stratum and no tool stratum**, so it bounds nothing about `citation_resolvability` recall or tool-probe accuracy |
+| `tables/python-verification.md` | The `core/` Python prototype: a separate system, not the evaluated artifact. Carries its own corrections |
 | `figures/architecture.mmd` | Request path from client through auth, admission, queue, Lite, projection, formatting |
 | `figures/deployment-state.mmd` | Surfaces placed on the L0-L4 ladder |
-| `tables/test-coverage.md` | 108 platform-layer tests, per-suite, with re-run status |
+| `tables/test-coverage.md` | Platform-layer tests per suite, with re-run status and dates. **302 as of 2026-09-04**; the older 108 figure is scoped to `d852db0` |
 | `tables/platform-evidence.md` | Summary index into `platform-status.md` |
 | `tables/claims-to-evidence.md` | Summary index into `evidence-ledger.md` |
 
@@ -65,5 +81,18 @@ The deployed default is GlassBox Lite and requires no paid model API.
    labelled operator canary, weaken it.
 6. Quote GBSA-1 only from the **held-out** split, and only about the **five probes it
    scores**. The development split's post-repair score is tuned on the test set. The
-   implementation emits thirteen probes, so eight are unmeasured, and no benchmark
-   number says how often any of these failure modes occurs in practice.
+   implementation emits **fourteen** deterministic probes plus six tool-invocation probes,
+   so fifteen are unmeasured, and no benchmark number says how often any of these failure
+   modes occurs in practice.
+7. **Name the component on every claim.** This repository holds two systems: the `core/`
+   Python prototype and the deployed Lite gateway. Almost every documentation contradiction
+   found in the 2026-09-04 pass came from a claim about one being stated as a claim about
+   both — most damagingly the HPS AUROC, which belongs to `core/`, sitting unscoped in the
+   root README while `limitations.md` correctly said the gateway has no AUROC.
+8. **Name the suite on every test count**, and never combine the Python core suite with the
+   platform layer.
+9. **Check the live endpoint, not the source, before publishing a claim about a deployed
+   probe.** The instance can lag this repository, and on 2026-09-04 it did.
+10. **No comparative capability rating against another product**, in any surface, until
+   ROADMAP §5D is actually run. Architectural self-description is permitted; rating another
+   tool is not.

@@ -96,8 +96,8 @@ to 9.
 | 9 | Authentication, consent, and abuse controls | Fail-closed 401s; 10/10min per requester; 100/day ceiling; concurrency 1; 24h replay window | C9 |
 | 10 | Implementation | `platforms/src/*`, extension, Notion, IDE clients | n/a |
 | 11 | Evaluation methodology | **The L0-L4 discipline.** Accuracy claims confined to the held-out split; the development split explicitly refused as an estimate | RQ4 |
-| 12 | Automated and adversarial testing | 108 tests across six suites; forged-request tests | C4, C5, C9 |
-| 13 | **Accuracy: the GBSA-1 benchmark** | Construction, seeds and splits; held-out per-probe table; the computed-vs-lexical finding; zero false positives across 187 items on the five scored probes; five-of-thirteen coverage and the unmeasured `answer_relevance` clean-control firings; the caveats that travel with every number | C-V |
+| 12 | Automated and adversarial testing | 108 tests across six suites **at `d852db0`**; 302 locally re-run at 2026-09-04 (gateway alone 266) — quote one snapshot with its date; forged-request tests | C4, C4a, C5, C9 |
+| 13 | **Accuracy: the GBSA-1 benchmark** | Construction, seeds and splits; held-out per-probe table; the computed-vs-lexical finding; zero false positives across 187 items on the five scored probes; five-of-fourteen coverage (plus six tool-invocation probes, all unmeasured) and the unmeasured `answer_relevance` clean-control firings; the caveats that travel with every number | C-V |
 | 14 | Cross-language reproducibility | Canonical hash `glassbox-85cc…`, with the prebuilt-parts caveat stated in the same paragraph | C15 |
 | 15 | Production deployment case studies | GitHub App E2E; MCP canary; determinism run | C7, C8, C1 |
 | 16 | **Negative results and external platform gates** | The strongest differentiator, see below | C12, C13, C14 |

@@ -12,6 +12,28 @@ One deployable Node 20 service that brings the published GlassBox v1 Trust Card 
 - Web browsers and Notion: installable/embeddable zero-secret app at `/app`
 - Any approved platform: authenticated advisory `POST /api/v1/verify` or blocking gate `POST /api/v1/govern`
 
+## What this gateway is, against the four assurance capabilities
+
+Stated first because the wording matters and the project's other documentation used to get
+it wrong. This service is a **governor**, not only an observer.
+
+| Capability | Status | What that means here |
+|---|---|---|
+| Detection | ✅ | 14 deterministic answer probes (13 currently live — see *deployment skew* below) and 6 tool-invocation probes, at five named checkpoints |
+| **Prevention** | ✅ **deployed** | `POST /api/v1/govern` is a synchronous release gate. It **withholds** output. |
+| Remediation | ❌ not built | The gate can refuse to release an answer. It cannot rewrite, regenerate or repair one. |
+| Human escalation | ⚠️ **signalled, not operated** | `escalate` returns 409 with `next_step: "human_review"`. There is no escalation queue, no reviewer identity, no decision record. |
+
+The precise sentence is *escalation signalling is implemented; an escalation queue is not.*
+
+"Deterministic" here means the **Lite backend**: byte-identical output for identical input,
+no clock read, no network, no model. It is **not** a property of the optional `anthropic`
+backend, which reintroduces model inference under the operator's own key.
+
+No conformity assessment under any AI regulation has been performed. This service is not a
+notified body or a conformity assessment body and produces no presumption of conformity for
+any party.
+
 The gateway uses the deterministic GlassBox Lite verifier by default and produces compact platform-native Trust Cards without a paid model API, API key, or network lookup. It does not monitor conversations or persist raw question/answer content. The published `@glassbox-framework/mcp@1.0.3`/Anthropic verifier remains an explicit opt-in backend for operators who provide their own key.
 
 GlassBox is a product developed under Aura, an unregistered umbrella brand. Aura is not a company or legal entity. The platform service is operated by Karthik Barma as an individual developer, charges no fee, accepts no payment, and sells nothing. `TheBarmaEffect` is retained in repository URLs and the support address as an account/contact identifier, not as a company name.
@@ -55,10 +77,25 @@ marker, forbid absolute-certainty language, or allow or forbid an exact tool tar
 `block`, `retry`, or `escalate`. The advisory `/verify` response records the selected action but
 sets `executed` to false because its caller remains responsible for enforcement.
 
-`POST /api/v1/govern` runs the same audit as `/api/v1/verify` and adds a synchronous release gate.
-It releases `allow` and `record` outcomes and withholds `block`, `retry`, and `escalate` outcomes.
-The response states the applied gate effect and the next step. The gateway does not claim to
-regenerate an answer or operate a human-review queue; callers handle those explicit next steps.
+`POST /api/v1/govern` runs the same audit as `/api/v1/verify` and adds a synchronous release
+gate. Exact behaviour, from `src/api.ts`:
+
+| Action | HTTP | `gate.effect` | `gate.next_step` | Trust Card |
+|---|---|---|---|---|
+| `allow` | 200 | `released` | `null` | `executed: true` |
+| `record` | 200 | `released_with_record` | `null` | `executed: true` |
+| `block` | **422** | `withheld` | `null` | `executed: true` |
+| `retry` | **409** | `withheld` | `"retry"` | `executed: true` |
+| `escalate` | **409** | `withheld` | `"human_review"` | `executed: true` |
+
+Every gated response carries `enforced_by_gateway: true`. The advisory `/api/v1/verify`
+always returns 200 and leaves `executed` at `false`, because on that surface the caller
+enforces. The two surfaces are counted under separate `surface` labels in
+`/api/v1/metrics`, so an advisory call can never be reported as an enforcement.
+
+The gateway does not claim to regenerate an answer or operate a human-review queue; callers
+handle those explicit next steps. It **withholds authorization** — it does not execute,
+intercept, or block a call that a caller chooses to make anyway.
 
 ## Architecture
 
@@ -71,11 +108,149 @@ Discord / Slack / Telegram / GitHub / Reddit / ChatGPT / Claude / API
                          |
    daily volume breaker + bounded queue (concurrency 1)
                          |
- deterministic Lite verifier (default, no network)
+ deterministic Lite verifier (default, no network)   src/lite.ts
+   ├── answer probes                                 src/lite.ts, src/signals.ts
+   ├── offline citation screening                    src/citation.ts
+   ├── tool-invocation assurance                     src/toolcall.ts
+   └── constitution rule evaluation                  src/lite.ts
        or explicit MCP/Anthropic opt-in
                          |
-             compact Trust Card formatter
+   content-free event counters                       src/metrics.ts
+                         |
+    advisory card  |  synchronous release gate       src/api.ts
+                         |
+             compact Trust Card formatter            src/formatter.ts
 ```
+
+### Verifier modules
+
+| Module | Wired? | What it does |
+|---|---|---|
+| `src/lite.ts` | ✅ | The deterministic verifier. Claim segmentation, allowlisted arithmetic, lexical contradiction, certainty and specificity vocabularies, relevance, injection and credential signals, fact-check scope, constitution rules. |
+| `src/signals.ts` | ✅ | The shared detection primitives — credential formats, dangerous execution patterns, injection signatures. Shared **on purpose**, so answer scanning and tool-argument scanning cannot drift apart and silently stop covering one surface. |
+| `src/citation.ts` | ✅ (see skew) | Offline citation screening. See below. |
+| `src/toolcall.ts` | ✅ | Tool-invocation assurance. See below. |
+| `src/metrics.ts` | ✅ | Content-free aggregate counters. See below. |
+| `src/canonical.ts` | ✅ | Canonical JSON and digests. Underpins determinism. |
+| `src/trajectory.ts` | ❌ **not wired** | Append-only tamper-evident record chain: Merkle tree, RFC 6962 domain-separated leaf/interior hashing, per-record inclusion proofs, signed tree head, resume-from-hashes. Implemented and tested; reachable from **no endpoint**. The `POST /api/v1/trajectory/replay` and `GET /api/v1/trajectory/pubkey` routes its own header describes **do not exist**. |
+| `src/attribution.ts` | ❌ **not wired, deliberately** | Computed attribution grounding — whether a "research shows"-style attribution carries a locatable support span. Held back because GBSA-1's held-out split is spent for the citation and certainty probes, so no recall figure for it could be quoted honestly. |
+
+### Tool-invocation assurance — `src/toolcall.ts`
+
+Runs at the `tool_call` and `agent_step` checkpoints, **before the caller executes the
+call**, and is declared at `/api/v1/capabilities` under `tool_invocation_probes` and
+`tool_assurance`.
+
+Six probes: `tool_capability`, `tool_declaration_drift`, `tool_description_injection`,
+`tool_argument_injection`, `tool_argument_credential`, `tool_argument_dangerous`.
+
+- **Declaration pinning covers the description, not only the JSON Schema.** The published
+  pin is over `["name", "description", "input_schema"]`. An MCP re-publication attack ships
+  a byte-identical schema and a description that now instructs the calling agent to read a
+  private key and pass it as context. The description is what the agent reads, so a
+  schema-only defence does not see the attack at all.
+- **Drift is attributed by component.** A description change on an unchanged schema is
+  `critical` — the attack shape. A schema-only revision is `high` — an ordinary version
+  bump. Without the distinction, pinning alarms on every legitimate release and gets
+  switched off.
+- **Capability scope.** `allowed_tools`, when supplied, refuses any tool absent from it even
+  when the answer is otherwise clean. Omitting the field declares "no capability scope".
+- **Argument scanning** reuses `src/signals.ts`: a credential in a tool argument is the same
+  credential, and `curl | sh` is the same command.
+
+Limits, also in the served `limitations[]`: pinning cannot detect a behaviour change that
+leaves the published declaration unchanged; **the caller supplies and stores the pin** and
+the gateway retains none between requests; and the gateway records the caller's declaration
+rather than independently verifying it.
+
+### Offline citation screening — `src/citation.ts`
+
+Wired as the `citation_resolvability` probe. Decides a subset of citation fabrication with
+**no network, no reference corpus, no model and no clock read**.
+
+- **Check digits**: ISBN-10 (ISO 2108, weighted mod 11), ISBN-13 (EAN-13, alternating mod
+  10), ISSN (ISO 3297, mod 11), ORCID (ISO/IEC 7064 MOD 11-2). Both `X` forms handled.
+- **Permanently closed ranges**: the arXiv digit-width/date coupling — 4-digit sequences
+  valid only for `YYMM` 0704–1412, 5-digit only from 1501, nothing before the 2007-04
+  epoch. The horizon is a fixed constant, not `new Date()`, so the result never depends on
+  the wall clock.
+- **Structural grammars** for DOI, PMID, PMCID, RFC and URL forms, reported as *weaker*
+  evidence than a checksum failure because no check digit was available.
+
+**The wording is part of the mechanism.** A finding says *the identifier fails its own check
+digit*, never *the citation is fabricated*: a transposed digit and an OCR error produce the
+same failure, and arithmetic cannot separate mistranscription from invention.
+
+**Measured: 0 firings across all 187 GBSA-1 items.** That bounds false positives on a corpus
+that contains **no fabricated-identifier stratum** — so **recall is unmeasured**, and it is
+bounded above by identifier presence. A fabricated reference with no identifier, or one
+whose invented identifier happens to carry a valid check digit, is invisible to this probe.
+
+> **Deployment skew, verified 2026-09-04.** The live instance's `/api/v1/capabilities`
+> advertises **13** deterministic probes and does **not** list `citation_resolvability`;
+> this repository's handler lists 14. The six tool-invocation probes *are* live. Until the
+> gateway is redeployed, treat offline citation screening as implemented and tested but
+> **deployed and verified live on 2026-09-04**.
+
+## Transparency endpoints
+
+Both are **unauthenticated** and machine-readable, like `/health` and `/ready`.
+
+### `GET /api/v1/capabilities`
+
+Publishes what the system can do **and an explicit `limitations[]` array of what it
+cannot**: the five checkpoints, every probe angle, the `tool_assurance` block, the
+constitution rule kinds, the five response actions, each endpoint's semantics, the gate's
+release and withhold sets, `external_fact_verification: false`,
+`raw_content_persistence: false`, and the metrics endpoint's own durability.
+
+The `limitations[]` array is the point. It states, at the public API, that pattern-based
+checks do not detect every attack or hallucination; that the advisory endpoint does not
+enforce its recommendation; that the govern endpoint withholds but does not regenerate
+output or operate a human-review queue; that the gateway is not a sandbox, firewall,
+malware scanner or professional-advice system; the three tool-pinning limits above; and
+that the metrics counters are not a durable audit log.
+
+### `GET /api/v1/metrics`
+
+Aggregate counters: verifications by surface, verdict, action, checkpoint type, highest
+severity and constitution version; released vs withheld; per-probe fire rate; latency
+buckets; and **admission rejections counted as a separate series** from verifications, so a
+refused request never lands in a verdict denominator.
+
+It **counts events, never content.** No question, answer, claim, evidence string, span, or
+hash of submitted content reaches a counter. Probe labels are matched against a fixed
+compile-time set, so a label can never become a channel for submitted text. Caller-supplied
+constitution versions must match an identifier pattern and are capped at 64 distinct values
+before overflowing to `other`. `src/metrics.ts` is written so that auditing this is a
+single-file read: `verificationEvent` is the only bridge from a Trust Card into a counter,
+and every label passes through `BoundedCounter`.
+
+Published caveats, in the payload itself: the counters are **in-memory and reset when the
+instance restarts** — process-local aggregates for an operator to scrape, **not a durable
+audit log**; `probe_fire_rate` is fired/evaluated, i.e. how often a check flagged
+something and **not how often the flag was correct**, because the gateway has no ground
+truth at runtime; and a `null` percentile means the sample sat above the largest bucket.
+
+## Tests
+
+**266 tests, 0 failures**, re-run 2026-09-04 at 15:33 (`npm test`). This is a timestamped
+observation: the same suite reported 254 at 15:05 the same day, before `src/lite.ts`,
+`src/mcp.ts`, `src/signals.ts` and two test files were edited mid-pass. Re-run before
+quoting. The 14 deterministic probe angles and 6 tool-invocation angles were unaffected. They cover the gate's status
+codes, tool-declaration drift attribution, capability-scope refusal, citation check-digit
+arithmetic against published identifiers, the (unwired) trajectory chain and its inclusion
+proofs, and the projection tests asserting that no submitted content reaches the public MCP
+response or the metrics payload.
+
+This is the **gateway suite only**. Re-run on the same day across the platform layer:
+browser extension 10, Notion 12, Reddit Devvit 9, VS Code 5 — a re-run platform-layer total
+of **302**, plus JetBrains 3 on CI evidence only. Do not add the Python core's `core/tests`
+suite to that total; it is a different system.
+
+**No latency figure exists for this deployment.** Evidence ledger C20 is L0, not executed.
+The Render free instance can sleep and cold-start, and `/api/v1/metrics` latency percentiles
+read `null` on a freshly restarted instance.
 
 No platform user ID, server/workspace name, subreddit, repository name, or URL is passed to the verifier. With Lite, the explicitly submitted question, answer, and optional intents remain inside this process. With the optional Anthropic backend, only those submitted text fields cross the MCP boundary.
 
