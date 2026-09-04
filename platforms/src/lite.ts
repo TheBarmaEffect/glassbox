@@ -99,6 +99,68 @@ const BINARY_ARITHMETIC = new RegExp(
   "gi",
 );
 
+/**
+ * Word-form arithmetic. Answers state arithmetic in words at least as often as in
+ * symbols ("9 times 9 is 80", "the product of 9 and 9 is 80"), and the symbolic pattern
+ * above cannot see any of it. Ported from an uncommitted working copy; the operand bound
+ * and the chain guard below are the ones the symbolic pattern already uses.
+ *
+ * This extends `arithmetic_sanity`, the probe with held-out recall 1.000, and it stays a
+ * *computed* check: the expression is recomputed rather than recognised, so it is
+ * indifferent to phrasings nobody enumerated.
+ */
+const WORD_OPERATORS =
+  "times|multiplied\\s+by|plus|added\\s+to|minus|less|subtracted\\s+from|divided\\s+by|over";
+// Same reasoning as BINARY_ARITHMETIC: an operand already preceded by a word operator is
+// the tail of a longer chain, not a new expression, so "2 plus 3 plus 4 is 9" must not
+// match "3 plus 4 is 9" and report correct prose as an arithmetic error.
+const WORD_ARITHMETIC = new RegExp(
+  `(?<!\\b(?:${WORD_OPERATORS})\\s)(${NUMBER_SOURCE})\\s+(${WORD_OPERATORS})\\s+(${NUMBER_SOURCE})` +
+  `\\s*(?:={1,3}|equals?|is|gives|makes)\\s*(${NUMBER_SOURCE})(?![\\d,.]*\\s*%)` +
+  `(?!\\s+(?:${WORD_OPERATORS})\\s)`,
+  "gi",
+);
+const NAMED_ARITHMETIC = new RegExp(
+  `\\b(product|sum|difference|quotient)\\s+of\\s+(${NUMBER_SOURCE})\\s+and\\s+(${NUMBER_SOURCE})` +
+  `\\s*(?:={1,3}|equals?|is)\\s*(${NUMBER_SOURCE})(?![\\d,.]*\\s*%)`,
+  "gi",
+);
+
+/** Symbolic operator equivalent of a word operator, so one code path recomputes both. */
+function wordOperatorSymbol(word: string): string | undefined {
+  const normalized = word.toLowerCase().replace(/\s+/g, " ");
+  if (normalized === "plus" || normalized === "added to") return "+";
+  if (normalized === "minus" || normalized === "less") return "-";
+  if (normalized === "times" || normalized === "multiplied by") return "*";
+  if (normalized === "divided by" || normalized === "over") return "/";
+  // "3 subtracted from 10" reverses its operands, so it has no single-symbol equivalent
+  // and is handled numerically rather than pretending the symbolic path applies.
+  return undefined;
+}
+
+function applyWordOperator(word: string, left: number, right: number): number | undefined {
+  const normalized = word.toLowerCase().replace(/\s+/g, " ");
+  if (normalized === "plus" || normalized === "added to") return left + right;
+  if (normalized === "minus" || normalized === "less") return left - right;
+  if (normalized === "subtracted from") return right - left;
+  if (normalized === "times" || normalized === "multiplied by") return left * right;
+  if ((normalized === "divided by" || normalized === "over") && right !== 0) return left / right;
+  return undefined;
+}
+
+const NAMED_OPERATOR_SYMBOL: Record<string, string> = {
+  sum: "+", difference: "-", product: "*", quotient: "/",
+};
+
+function applyNamedOperator(name: string, left: number, right: number): number | undefined {
+  const normalized = name.toLowerCase();
+  if (normalized === "sum") return left + right;
+  if (normalized === "difference") return left - right;
+  if (normalized === "product") return left * right;
+  if (normalized === "quotient" && right !== 0) return left / right;
+  return undefined;
+}
+
 const STOP_WORDS = new Set([
   "a", "an", "and", "are", "as", "at", "be", "been", "being", "but", "by", "for", "from", "has",
   "have", "in", "is", "it", "its", "of", "on", "or", "that", "the", "their", "there", "these", "this",
@@ -569,6 +631,40 @@ function arithmeticChecks(rawAnswer: string): ArithmeticCheck[] {
       checks.push({ expression, passed: false, actual, start, end: start + expression.length });
     } else {
       checks.push(numericCheck(expression, expected, actual, start));
+    }
+  }
+
+  for (const [pattern, leftGroup, opGroup, rightGroup, resultGroup, symbolOf, applyOp] of [
+    [WORD_ARITHMETIC, 1, 2, 3, 4, wordOperatorSymbol, applyWordOperator],
+    [NAMED_ARITHMETIC, 2, 1, 3, 4, (name: string) => NAMED_OPERATOR_SYMBOL[name.toLowerCase()], applyNamedOperator],
+  ] as const) {
+    for (const match of answer.matchAll(new RegExp(pattern.source, pattern.flags))) {
+      const start = match.index ?? 0;
+      const expression = match[0];
+      if (overlaps(start, start + expression.length, occupied)) continue;
+      const leftText = match[leftGroup];
+      const rightText = match[rightGroup];
+      const actualText = match[resultGroup];
+      const operatorWord = match[opGroup];
+      const left = parseNumber(leftText);
+      const right = parseNumber(rightText);
+      const actual = parseNumber(actualText);
+      if (left === undefined || right === undefined || actual === undefined || !operatorWord) continue;
+      occupied.push([start, start + expression.length]);
+
+      // Recompute integers exactly, as the symbolic path does.
+      const symbol = symbolOf(operatorWord);
+      const exact = symbol ? exactIntegerResult(leftText, symbol, rightText, actualText) : undefined;
+      if (exact !== undefined) {
+        checks.push({ expression, passed: exact, actual, start, end: start + expression.length });
+        continue;
+      }
+      const expected = applyOp(operatorWord, left, right);
+      if (expected === undefined || !Number.isFinite(expected)) {
+        checks.push({ expression, passed: false, actual, start, end: start + expression.length });
+      } else {
+        checks.push(numericCheck(expression, expected, actual, start));
+      }
     }
   }
   return checks;
