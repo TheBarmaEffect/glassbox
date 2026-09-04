@@ -18,9 +18,15 @@ test("guild Discord registration removes global-only command fields", () => {
 });
 
 test("Discord delivery rejects before the interaction token expires", async () => {
-  const stalled = new Promise<never>(() => undefined);
+  // The stalled promise must not settle on its own, so that the deadline is what rejects.
+  // It is settled explicitly at the end: a promise left pending past the test makes
+  // Node's shared-process test runner report "Promise resolution is still pending but the
+  // event loop has already resolved" and cancel unrelated test files alongside it.
+  let settle!: (value: string) => void;
+  const stalled = new Promise<string>((resolve) => { settle = resolve; });
   await assert.rejects(withDiscordDeliveryDeadline(stalled, 5), DeliveryDeadlineError);
   assert.equal(await withDiscordDeliveryDeadline(Promise.resolve("ok"), 50), "ok");
+  settle("released after the deadline had already fired");
 });
 
 test("Reddit polling uses the official unread route and ignores unrelated inbox items", () => {
