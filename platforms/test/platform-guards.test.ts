@@ -27,6 +27,11 @@ test("Discord delivery rejects before the interaction token expires", async () =
   await assert.rejects(withDiscordDeliveryDeadline(stalled, 5), DeliveryDeadlineError);
   assert.equal(await withDiscordDeliveryDeadline(Promise.resolve("ok"), 50), "ok");
   settle("released after the deadline had already fired");
+  // Await the settlement, not just trigger it. Returning while the promise's handlers are
+  // still queued lets Node's test runner report "Promise resolution is still pending but
+  // the event loop has already resolved" and cancel the whole file — which is what it did
+  // on CI's Node 20 while passing locally on Node 26.
+  await stalled;
 });
 
 test("Reddit polling uses the official unread route and ignores unrelated inbox items", () => {

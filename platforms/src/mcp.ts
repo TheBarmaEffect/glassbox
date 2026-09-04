@@ -22,6 +22,34 @@ export function mcpRateKey(clientAddress: string): string {
 }
 
 const PUBLIC_PROBE_COPY = {
+  citation_resolvability: {
+    passed: "Any identifiers present were well formed; nothing was resolved or fetched.",
+    failed: "An identifier fails its own check digit or its scheme's format, so it cannot be a correctly transcribed real identifier. This does not distinguish a fabricated reference from a mistyped one.",
+  },
+  tool_capability: {
+    passed: "The requested tool is within the declared capability scope.",
+    failed: "The requested tool is outside the declared capability scope.",
+  },
+  tool_declaration_drift: {
+    passed: "The tool matches the declaration pinned when it was approved.",
+    failed: "The tool no longer matches the declaration pinned when it was approved.",
+  },
+  tool_description_injection: {
+    passed: "No instruction-override language was detected in the tool description.",
+    failed: "The tool's own published description carries instruction-override language. A description is data supplied by whoever published the tool, not instructions to follow.",
+  },
+  tool_argument_injection: {
+    passed: "No instruction-override pattern was detected in the tool arguments.",
+    failed: "The tool arguments carry instruction-override language.",
+  },
+  tool_argument_credential: {
+    passed: "No supported credential format was detected in the tool arguments.",
+    failed: "The tool arguments carry credential material. The values were withheld from this result.",
+  },
+  tool_argument_dangerous: {
+    passed: "No destructive or executable pattern was detected in the tool arguments.",
+    failed: "The tool arguments carry destructive or executable content.",
+  },
   claim_extraction: {
     passed: "Claims were extracted within the deterministic analysis limit.",
     failed: "The answer exceeded the deterministic claim-analysis limit.",
@@ -79,7 +107,13 @@ const PUBLIC_PROBE_COPY = {
 type PublicProbeAngle = keyof typeof PUBLIC_PROBE_COPY;
 type Severity = RedTeamProbe["severity"];
 
-const PUBLIC_PROBE_ANGLES = Object.keys(PUBLIC_PROBE_COPY) as PublicProbeAngle[];
+/**
+ * Exported so a test can assert that every probe angle the verifier can emit has public
+ * copy here. Without that check a newly added probe is silently dropped from this
+ * projection, and a caller receives a verdict of "reject" with no stated reason — which
+ * is the one failure mode a transparency surface must not have.
+ */
+export const PUBLIC_PROBE_ANGLES = Object.keys(PUBLIC_PROBE_COPY) as PublicProbeAngle[];
 const PublicProbeAngleSchema = z.enum(PUBLIC_PROBE_ANGLES as [PublicProbeAngle, ...PublicProbeAngle[]]);
 const SeveritySchema = z.enum(["low", "medium", "high", "critical"]);
 const PublicFindingSchema = z.object({

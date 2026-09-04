@@ -235,3 +235,56 @@ test("MCP rejects question, answer, and intent counts above the parser limits", 
     await connection.close();
   }
 });
+
+// ---------------------------------------------------------------------------
+// Projection coverage.
+//
+// The public MCP projection iterates the copy map, so a probe with no entry is
+// dropped silently. That shipped once: `citation_resolvability` and the six
+// tool probes were live and decisive while the projection reported
+// verdict "reject" with finding_count 0 and highest_severity "low" — an
+// unexplained rejection, which is the one failure a transparency surface
+// cannot have. This test enumerates what the verifier actually emits rather
+// than trusting a hand-maintained list.
+// ---------------------------------------------------------------------------
+
+test("every probe angle the verifier can emit has public copy", async () => {
+  const { GlassboxLiteVerifier } = await import("../src/lite.js");
+  const { PUBLIC_PROBE_ANGLES } = await import("../src/mcp.js");
+  const verifier = new GlassboxLiteVerifier(() => new Date("2026-01-01T00:00:00.000Z"));
+
+  // Inputs chosen to exercise every probe family, including the tool probes,
+  // which only appear when a tool invocation is supplied.
+  const cards = await Promise.all([
+    verifier.verify({ platform: "api", question: "Sources?", answer: "See ISBN 978-0-13-235088-7." }),
+    verifier.verify({ platform: "api", question: "Compute it.", answer: "2 + 2 = 5. It never fails." }),
+    verifier.verify({
+      platform: "api",
+      question: "Read the config.",
+      answer: "Calling read_file.",
+      checkpoint: { id: "c", type: "tool_call", target: "https://example.org/x" },
+      tool: {
+        tool: "read_file",
+        arguments: { path: "a.txt" },
+        declaration: { name: "read_file", description: "Read a file.", input_schema: { type: "object" } },
+      },
+      tool_pins: [],
+      allowed_tools: ["read_file"],
+      constitution: {
+        version: "v1",
+        rules: [{ id: "r", requirement: "cite", kind: "require_citation", severity: "low" }],
+      },
+    }),
+  ]);
+
+  const emitted = new Set<string>();
+  for (const card of cards) for (const probe of card.red_team.probes) emitted.add(probe.angle);
+  // Caller-supplied constitution rules are namespaced and reported separately, not
+  // through the fixed copy map, so they are excluded.
+  const fixed = [...emitted].filter((angle) => !angle.startsWith("constitution:")).sort();
+  const covered = new Set(PUBLIC_PROBE_ANGLES as string[]);
+  const missing = fixed.filter((angle) => !covered.has(angle));
+
+  assert.deepEqual(missing, [], `probe angles with no public copy: ${missing.join(", ")}`);
+  assert.ok(fixed.length >= 19, `expected the full probe set, saw ${fixed.length}`);
+});
