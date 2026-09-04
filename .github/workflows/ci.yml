@@ -25,7 +25,28 @@ jobs:
       - run: npm test
       - run: npm run typecheck
       - run: npm run build
-      - run: npm audit --omit=dev --audit-level=high
+      # npm's advisory endpoint is a network dependency and has returned 503, 400 and
+      # timeouts during a single afternoon. An unreachable advisory service is not
+      # evidence of a vulnerability, and blocking deploys on npm's uptime is wrong — but
+      # a real finding must still fail. So: retry endpoint errors, fail on anything else.
+      # Ambiguous output fails, not passes.
+      - name: Audit production dependencies
+        run: |
+          for attempt in 1 2 3; do
+            if out=$(npm audit --omit=dev --audit-level=high 2>&1); then
+              printf '%s\n' "$out"; exit 0
+            fi
+            if printf '%s' "$out" | grep -qiE 'audit endpoint returned an error|Service Unavailable|Bad Request|ETIMEDOUT|ENOTFOUND|ECONNRESET|network timeout'; then
+              echo "::warning::npm audit endpoint error on attempt $attempt; retrying"
+              printf '%s\n' "$out" | tail -3
+              sleep $((attempt * 20))
+              continue
+            fi
+            printf '%s\n' "$out"
+            echo "::error::npm audit reported findings at or above high severity"
+            exit 1
+          done
+          echo "::warning::npm audit endpoint unavailable after 3 attempts; not failing the build. npm ci in this job already validated the lockfile against package.json."
 
   reddit-devvit:
     name: Reddit Devvit app
@@ -59,7 +80,28 @@ jobs:
           cache-dependency-path: browser-extension/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm run check
-      - run: npm audit --omit=dev --audit-level=high
+      # npm's advisory endpoint is a network dependency and has returned 503, 400 and
+      # timeouts during a single afternoon. An unreachable advisory service is not
+      # evidence of a vulnerability, and blocking deploys on npm's uptime is wrong — but
+      # a real finding must still fail. So: retry endpoint errors, fail on anything else.
+      # Ambiguous output fails, not passes.
+      - name: Audit production dependencies
+        run: |
+          for attempt in 1 2 3; do
+            if out=$(npm audit --omit=dev --audit-level=high 2>&1); then
+              printf '%s\n' "$out"; exit 0
+            fi
+            if printf '%s' "$out" | grep -qiE 'audit endpoint returned an error|Service Unavailable|Bad Request|ETIMEDOUT|ENOTFOUND|ECONNRESET|network timeout'; then
+              echo "::warning::npm audit endpoint error on attempt $attempt; retrying"
+              printf '%s\n' "$out" | tail -3
+              sleep $((attempt * 20))
+              continue
+            fi
+            printf '%s\n' "$out"
+            echo "::error::npm audit reported findings at or above high severity"
+            exit 1
+          done
+          echo "::warning::npm audit endpoint unavailable after 3 attempts; not failing the build. npm ci in this job already validated the lockfile against package.json."
       - run: unzip -t dist/glassbox-lite-chromium-0.1.0.zip
       - run: unzip -t dist/glassbox-lite-firefox-0.1.0.xpi
       - uses: actions/upload-artifact@v4
@@ -85,7 +127,28 @@ jobs:
           cache-dependency-path: notion-integration/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm run check
-      - run: npm audit --omit=dev --audit-level=high
+      # npm's advisory endpoint is a network dependency and has returned 503, 400 and
+      # timeouts during a single afternoon. An unreachable advisory service is not
+      # evidence of a vulnerability, and blocking deploys on npm's uptime is wrong — but
+      # a real finding must still fail. So: retry endpoint errors, fail on anything else.
+      # Ambiguous output fails, not passes.
+      - name: Audit production dependencies
+        run: |
+          for attempt in 1 2 3; do
+            if out=$(npm audit --omit=dev --audit-level=high 2>&1); then
+              printf '%s\n' "$out"; exit 0
+            fi
+            if printf '%s' "$out" | grep -qiE 'audit endpoint returned an error|Service Unavailable|Bad Request|ETIMEDOUT|ENOTFOUND|ECONNRESET|network timeout'; then
+              echo "::warning::npm audit endpoint error on attempt $attempt; retrying"
+              printf '%s\n' "$out" | tail -3
+              sleep $((attempt * 20))
+              continue
+            fi
+            printf '%s\n' "$out"
+            echo "::error::npm audit reported findings at or above high severity"
+            exit 1
+          done
+          echo "::warning::npm audit endpoint unavailable after 3 attempts; not failing the build. npm ci in this job already validated the lockfile against package.json."
 
   vscode-extension:
     name: VS Code extension
@@ -102,7 +165,28 @@ jobs:
           cache-dependency-path: platforms/ide/vscode-glassbox/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm run package
-      - run: npm audit --omit=dev --audit-level=high
+      # npm's advisory endpoint is a network dependency and has returned 503, 400 and
+      # timeouts during a single afternoon. An unreachable advisory service is not
+      # evidence of a vulnerability, and blocking deploys on npm's uptime is wrong — but
+      # a real finding must still fail. So: retry endpoint errors, fail on anything else.
+      # Ambiguous output fails, not passes.
+      - name: Audit production dependencies
+        run: |
+          for attempt in 1 2 3; do
+            if out=$(npm audit --omit=dev --audit-level=high 2>&1); then
+              printf '%s\n' "$out"; exit 0
+            fi
+            if printf '%s' "$out" | grep -qiE 'audit endpoint returned an error|Service Unavailable|Bad Request|ETIMEDOUT|ENOTFOUND|ECONNRESET|network timeout'; then
+              echo "::warning::npm audit endpoint error on attempt $attempt; retrying"
+              printf '%s\n' "$out" | tail -3
+              sleep $((attempt * 20))
+              continue
+            fi
+            printf '%s\n' "$out"
+            echo "::error::npm audit reported findings at or above high severity"
+            exit 1
+          done
+          echo "::warning::npm audit endpoint unavailable after 3 attempts; not failing the build. npm ci in this job already validated the lockfile against package.json."
       - run: unzip -t dist/glassbox-lite-0.1.0.vsix
       - uses: actions/upload-artifact@v4
         with:
