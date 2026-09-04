@@ -28,7 +28,11 @@ export const SECRET_PATTERNS: Array<[string, RegExp]> = [
 ];
 
 export const DANGEROUS_ACTION_PATTERNS: Array<[string, RegExp]> = [
-  ["destructive filesystem command", /\brm\s+-[^\n]*r[^\n]*f[^\n]*(?:\/|~|\$HOME)\b/i],
+  // No trailing \b. The target alternation ends on "/", "~" or "$HOME", and \b after a
+  // non-word character only holds when a word character follows it — so the pattern
+  // matched "rm -rf /home" but not "rm -rf /", "rm -rf ~" or "rm -rf /*", missing the
+  // three most destructive forms while catching the milder one.
+  ["destructive filesystem command", /\brm\s+-[^\n]*r[^\n]*f[^\n]*(?:\/|~|\$HOME)/i],
   ["download-and-execute pipeline", /\b(?:curl|wget)\b[^\n|]{0,300}\|\s*(?:sh|bash|zsh|powershell)\b/i],
   ["encoded PowerShell execution", /\bpowershell(?:\.exe)?\b[^\n]{0,160}\b(?:-enc|-encodedcommand)\b/i],
   ["reverse shell", /\b(?:nc|ncat|netcat)\b[^\n]{0,120}\s-e\s*(?:\/bin\/)?(?:sh|bash)|\/dev\/tcp\//i],
@@ -69,10 +73,26 @@ export const PROMPT_INJECTION_PATTERN = new RegExp(
     "\\b(?:no|without)\\s+(?:restrictions|limitations|filters|guardrails|safety)\\b.{0,30}\\b(?:must|will|should)\\s+comply\\b",
     "\\bact as (?:if you are )?(?:an? )?(?:unrestricted|unfiltered|uncensored|jailbroken)\\b",
     "\\bpretend (?:that )?you (?:have no|are not bound by)\\b",
-    // role markers injected as content, tagged or bare
+    // Role markers injected as content.
+    //
+    // Scope deliberately narrow, and narrowed back after measurement. Extending this to
+    // `[ASSISTANT]` and to a bare `SYSTEM:|ASSISTANT:|DEVELOPER:` prefix was argued for on
+    // the grounds that a structural marker generalises where a vocabulary does not. It
+    // does generalise — onto ordinary chat transcripts, which are written in exactly this
+    // notation. On HaluEval Dialogue (4,000 items, transcripts rendered as
+    // "[Human]: ... [Assistant]: ...") the two additions fired on 98.25% of items, and
+    // because `input_injection` is decisive they rejected almost the whole corpus.
+    //
+    // A transcript is one of the most natural inputs an output auditor receives, so this
+    // is a large common input class, not an exotic edge. Separating the two cases needs to
+    // decide whether the text after a role marker is an instruction or a turn of dialogue,
+    // and the only available discriminator is an imperative vocabulary — which is the
+    // thing GBSA-1 showed buys development score and no held-out capability. So the
+    // capability is withdrawn rather than patched: `[INST]` and `[SYSTEM]` are chat-template
+    // delimiters that do not occur in rendered dialogue, and the XML-style tags below are
+    // likewise not transcript notation.
     "</?(?:system|assistant|developer)>",
-    "\\[(?:INST|SYSTEM|ASSISTANT)\\]",
-    "(?:^|[\\s\"(])(?:SYSTEM|ASSISTANT|DEVELOPER)\\s*:",
+    "\\[(?:INST|SYSTEM)\\]",
     "\\b(?:ignore|disregard|override|forget)\\s+(?:all\\s+|everything\\s+)?(?:the\\s+|your\\s+)?(?:above|previous|prior|earlier|preceding)\\b",
     "\\bforget everything\\b",
     "\\bnew instructions?\\s*:",

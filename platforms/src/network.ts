@@ -43,14 +43,17 @@ const BLOCKED_HOST_SUFFIXES: readonly string[] = [
   "instance-data.ec2.internal",
 ];
 
+/**
+ * Strict dotted-quad only. This is the *canonical* parse, used where an address must be
+ * read exactly as written — notably the trailing dotted-quad of an IPv6 literal, where a
+ * permissive reading would invent groups.
+ */
 export function parseIpv4(host: string): number | undefined {
   const parts = host.split(".");
   if (parts.length !== 4) return undefined;
   let value = 0;
   for (const part of parts) {
-    // Reject non-canonical forms: empty, non-digit, leading zero, out of range. Octal and
-    // hex spellings of an address are not accepted as an address at all, which means they
-    // fall through to hostname handling and fail to resolve rather than silently passing.
+    // Reject non-canonical forms: empty, non-digit, leading zero, out of range.
     if (!/^\d{1,3}$/.test(part)) return undefined;
     if (part.length > 1 && part.startsWith("0")) return undefined;
     const octet = Number(part);
@@ -58,6 +61,47 @@ export function parseIpv4(host: string): number | undefined {
     value = value * 256 + octet;
   }
   return value >>> 0;
+}
+
+/**
+ * Everything `inet_aton(3)` accepts: one to four parts, each decimal, octal (leading 0) or
+ * hex (leading 0x), with the final part absorbing all remaining octets. So "127.1",
+ * "2130706433", "017700000001" and "0x7f000001" are all read as 127.0.0.1.
+ *
+ * This exists because the strict parser's original rationale was wrong. It said those
+ * spellings "fall through to hostname handling and fail to resolve rather than silently
+ * passing" — but they do resolve: `dns.lookup` returns 127.0.0.1 for every one of them,
+ * because getaddrinfo hands them to inet_aton. The deployed path happens to be safe today
+ * only because `networkBoundaryFinding` reads `new URL(...).hostname`, and the WHATWG URL
+ * parser normalises them to dotted quads before `isBlockedHost` ever sees them. That is
+ * an accident of one caller, not a property of the predicate, so the predicate is fixed
+ * here rather than left to depend on it.
+ *
+ * Used only to *block*, never to allow, so a spelling this reads as private and a resolver
+ * would not costs a refused request and never an unintended one.
+ */
+function parseIpv4Permissive(host: string): number | undefined {
+  const parts = host.split(".");
+  if (parts.length === 0 || parts.length > 4) return undefined;
+  const numbers: number[] = [];
+  for (const part of parts) {
+    let parsed: number;
+    if (/^0[xX][0-9a-fA-F]+$/.test(part)) parsed = parseInt(part.slice(2), 16);
+    else if (/^0[0-7]+$/.test(part)) parsed = parseInt(part.slice(1), 8);
+    else if (/^\d+$/.test(part)) parsed = Number(part);
+    else return undefined;
+    if (!Number.isSafeInteger(parsed)) return undefined;
+    numbers.push(parsed);
+  }
+  // Every part but the last is one octet; the last fills the remaining octets.
+  const last = numbers[numbers.length - 1]!;
+  const leading = numbers.slice(0, -1);
+  if (leading.some((octet) => octet > 255)) return undefined;
+  const remaining = 4 - leading.length;
+  if (last >= 2 ** (8 * remaining)) return undefined;
+  let value = 0;
+  for (const octet of leading) value = value * 256 + octet;
+  return ((value * 2 ** (8 * remaining)) + last) >>> 0;
 }
 
 function ipv4InCidr(address: number, base: string, prefix: number): boolean {
@@ -68,7 +112,7 @@ function ipv4InCidr(address: number, base: string, prefix: number): boolean {
 }
 
 export function isBlockedIpv4(host: string): boolean {
-  const address = parseIpv4(host);
+  const address = parseIpv4Permissive(host);
   if (address === undefined) return false;
   return BLOCKED_IPV4_CIDRS.some(([base, prefix]) => ipv4InCidr(address, base, prefix));
 }
@@ -121,6 +165,10 @@ export function embeddedIpv4(groups: number[]): number | undefined {
   const join = (high: number, low: number) => ((high << 16) | low) >>> 0;
   // ::ffff:0:0/96 — IPv4-mapped
   if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0xffff) return join(g6, g7);
+  // ::ffff:0:0:0/96 — IPv4-translated (RFC 2765). Deprecated and not routed to loopback by
+  // a stock host, but it is one keystroke from the mapped form above and was the only
+  // spelling of "::ffff:0:127.0.0.1" that this file let through.
+  if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0xffff && g5 === 0) return join(g6, g7);
   // ::/96 — deprecated IPv4-compatible
   if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0) return join(g6, g7);
   // 2002::/16 — 6to4, the embedded address sits in groups 1 and 2

@@ -43,13 +43,14 @@ const MAX_ARGUMENT_DEPTH = 12;
 
 /**
  * Deterministic serialization for hashing and scanning: keys sorted, no incidental
- * whitespace, cycles and over-deep structures rejected rather than silently truncated.
+ * whitespace, cycles replaced by an explicit marker and over-deep structures cut at a
+ * marker rather than silently dropped, so neither can be mistaken for absent data.
  *
  * Sorting is by UTF-8 byte order rather than JavaScript's default UTF-16 code-unit order,
  * because those two disagree above the BMP and a hash that depends on which language
  * produced it is not a hash anyone can verify.
  */
-export function stableStringify(value: unknown, depth = 0): string {
+export function stableStringify(value: unknown, depth = 0, seen: Set<object> = new Set()): string {
   if (depth > MAX_ARGUMENT_DEPTH) return '"[depth-exceeded]"';
   if (value === null) return "null";
   if (value === undefined) return "null";
@@ -60,16 +61,35 @@ export function stableStringify(value: unknown, depth = 0): string {
   }
   if (typeof value === "boolean") return String(value);
   if (typeof value === "string") return JSON.stringify(value);
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item, depth + 1)).join(",")}]`;
-  }
-  if (typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>)
+  if (typeof value !== "object") return "null";
+
+  // A cycle is caught here rather than by the depth cap alone. The cap does terminate,
+  // but it terminates after expanding the cycle once per level, so an object with k
+  // self-referencing keys expands to k^(MAX_ARGUMENT_DEPTH+1) nodes: four keys took
+  // sixteen seconds and then threw RangeError out of a function whose callers do not
+  // catch. Marking the back-edge keeps the serialization total and O(nodes).
+  const container = value as object;
+  if (seen.has(container)) return '"[cycle]"';
+  seen.add(container);
+  try {
+    if (Array.isArray(container)) {
+      // Indexed rather than mapped: Array.prototype.map preserves holes, and a hole
+      // rendered by join() emits nothing between the commas, so a sparse array
+      // serialized to "[1,,3]" — not JSON, and not a form any verifier can reproduce.
+      const items: string[] = [];
+      for (let index = 0; index < container.length; index += 1) {
+        items.push(stableStringify(container[index], depth + 1, seen));
+      }
+      return `[${items.join(",")}]`;
+    }
+    const entries = Object.entries(container as Record<string, unknown>)
       .filter(([, item]) => item !== undefined)
       .sort(([left], [right]) => compareUtf8(left, right));
-    return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item, depth + 1)}`).join(",")}}`;
+    return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item, depth + 1, seen)}`).join(",")}}`;
+  } finally {
+    // Path-scoped, so a value referenced twice in different branches is not a cycle.
+    seen.delete(container);
   }
-  return "null";
 }
 
 function compareUtf8(left: string, right: string): number {

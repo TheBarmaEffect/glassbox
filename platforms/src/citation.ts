@@ -216,14 +216,46 @@ function compact(value: string): string {
   return value.replace(SEPARATORS, "").toUpperCase();
 }
 
+/**
+ * The shapes on which the check-digit arithmetic is *defined*.
+ *
+ * `checksum_verified: true` is a claim that a check digit was computed and compared, and
+ * downstream (`checksumFailures`, and the decisive `citation_resolvability` gate in
+ * `lite.ts`) treats it as proof that the string cannot be a correctly transcribed real
+ * identifier. So it may only be set when the arithmetic actually ran. A string of the
+ * right *length* but the wrong *shape* — an ISBN-10 with 'X' somewhere other than the
+ * final position, a non-ASCII digit, a 13-digit number outside the GS1 book prefixes —
+ * never reaches the arithmetic, and reporting it as a check-digit mismatch both overstates
+ * what was computed and promotes a grammar failure into a rejection.
+ */
+const ISBN10_SHAPE = /^\d{9}[\dX]$/;
+const ISBN13_SHAPE = /^\d{13}$/;
+const ISSN_SHAPE = /^\d{7}[\dX]$/;
+const ORCID_SHAPE = /^\d{15}[\dX]$/;
+
 export function classifyIsbn(raw: string): CitationFinding {
   const digits = compact(raw);
   if (digits.length === 13) {
+    if (!ISBN13_SHAPE.test(digits)) {
+      return finding("isbn13", digits, "structurally_invalid",
+        "an ISBN-13 is thirteen digits, so no check digit could be computed", false);
+    }
+    if (!digits.startsWith("978") && !digits.startsWith("979")) {
+      // Not a check-digit failure: GS1 assigned only 978 and 979 to books, so this is a
+      // thirteen-digit number that is not an ISBN at all. Reported as grammar, which is
+      // the weaker finding, because the arithmetic was never applicable.
+      return finding("isbn13", digits, "structurally_invalid",
+        "a 13-digit ISBN must begin with the 978 or 979 GS1 book prefix", false);
+    }
     const valid = isbn13ChecksumValid(digits);
     return finding("isbn13", digits, valid ? "structurally_valid" : "structurally_invalid",
       valid ? "ISBN-13 check digit is correct" : "ISBN-13 check digit does not match the preceding digits", true);
   }
   if (digits.length === 10) {
+    if (!ISBN10_SHAPE.test(digits)) {
+      return finding("isbn10", digits, "structurally_invalid",
+        "an ISBN-10 is nine digits followed by a digit or 'X', so no check digit could be computed", false);
+    }
     const valid = isbn10ChecksumValid(digits);
     return finding("isbn10", digits, valid ? "structurally_valid" : "structurally_invalid",
       valid ? "ISBN-10 check digit is correct" : "ISBN-10 check digit does not match the preceding digits", true);
@@ -236,6 +268,10 @@ export function classifyIssn(raw: string): CitationFinding {
   if (digits.length !== 8) {
     return finding("issn", digits, "structurally_invalid", `ISSN must be 8 digits, found ${digits.length}`, false);
   }
+  if (!ISSN_SHAPE.test(digits)) {
+    return finding("issn", digits, "structurally_invalid",
+      "an ISSN is seven digits followed by a digit or 'X', so no check digit could be computed", false);
+  }
   const valid = issnChecksumValid(digits);
   return finding("issn", digits, valid ? "structurally_valid" : "structurally_invalid",
     valid ? "ISSN check digit is correct" : "ISSN check digit does not match the preceding digits", true);
@@ -245,6 +281,10 @@ export function classifyOrcid(raw: string): CitationFinding {
   const digits = compact(raw.replace(/^https?:\/\/orcid\.org\//i, ""));
   if (digits.length !== 16) {
     return finding("orcid", digits, "structurally_invalid", `ORCID must be 16 characters, found ${digits.length}`, false);
+  }
+  if (!ORCID_SHAPE.test(digits)) {
+    return finding("orcid", digits, "structurally_invalid",
+      "an ORCID is fifteen digits followed by a digit or 'X', so no check digit could be computed", false);
   }
   const valid = orcidChecksumValid(digits);
   return finding("orcid", digits, valid ? "structurally_valid" : "structurally_invalid",
@@ -303,11 +343,39 @@ export function classifyRfc(raw: string): CitationFinding {
  * costs recall on unlabelled references and buys the precision that lets a checksum
  * failure be reported as a hard finding.
  */
+/**
+ * The separator run permitted *inside* a written identifier. Must stay a subset of
+ * `SEPARATORS`, or the extractor could capture a character that `compact` then leaves in
+ * place, turning a correctly transcribed identifier into a length failure.
+ */
+const SEP = "[\\s\\-\\u2010-\\u2015\\u2212]";
+
+/**
+ * An ISBN token is exactly ten or exactly thirteen characters. Writing that as a length
+ * *range* over a class that includes whitespace let the match run past the end of the
+ * identifier and absorb the next number in the sentence: "ISBN 0-306-40615-2 320 pages"
+ * captured thirteen characters, which were then read as an ISBN-13 and reported as a
+ * check-digit failure — a hard rejection produced by a correctly transcribed ISBN-10.
+ *
+ * So each length is its own branch, the thirteen-digit branch is anchored to the GS1 book
+ * prefixes that are the only way an ISBN-13 can begin, and a trailing `(?![\dX])` refuses
+ * a token that is merely the truncation of a longer digit run. Together those mean a
+ * captured token is a whole identifier or nothing: the extractor no longer manufactures
+ * an identifier out of two adjacent numbers, in either direction.
+ */
+const ISBN_TOKEN = `(?:97[89](?:${SEP}?\\d){10}|\\d(?:${SEP}?\\d){8}${SEP}?[\\dX])(?![\\dX])`;
+
 const EXTRACTORS: Array<{ kind: CitationKind; pattern: RegExp; group: number }> = [
-  { kind: "isbn13", pattern: /\bISBN(?:-1[03])?\s*:?\s*((?:97[89][\s‐-―-]?)?[\dX][\d\sX‐-―-]{8,20}[\dX])/gi, group: 1 },
+  { kind: "isbn13", pattern: new RegExp(`\\bISBN(?:-1[03])?\\s*:?\\s*(${ISBN_TOKEN})`, "gi"), group: 1 },
   { kind: "issn", pattern: /\bISSN\s*:?\s*(\d{4}[\s‐-―-]?\d{3}[\dX])\b/gi, group: 1 },
   { kind: "orcid", pattern: /(?:\bORCID\s*:?\s*|https?:\/\/orcid\.org\/)(\d{4}[\s‐-―-]?\d{4}[\s‐-―-]?\d{4}[\s‐-―-]?\d{3}[\dX])\b/gi, group: 1 },
-  { kind: "doi", pattern: /(?:\bdoi\s*:\s*|https?:\/\/(?:dx\.)?doi\.org\/)?(10\.\d{1,9}(?:\.\d+)*\/[^\s,;)\]}]+)/gi, group: 1 },
+  // The registrant length here must match DOI_GRAMMAR exactly. When the extractor was the
+  // looser of the two (\d{1,9} against a grammar of \d{4,9}) every "10.N/..." in ordinary
+  // prose — a score of 10.5/12, a dose of 10.5/kg, a version 10.2/build — was captured as
+  // a DOI candidate and then reported as a grammar violation, so benign answers failed the
+  // citation_resolvability probe. ISO 26324 registrants are four to nine digits; a shorter
+  // one is not a malformed DOI, it is not a DOI.
+  { kind: "doi", pattern: /(?:\bdoi\s*:\s*|https?:\/\/(?:dx\.)?doi\.org\/)?(10\.\d{4,9}(?:\.\d+)*\/[^\s,;)\]}]+)/gi, group: 1 },
   { kind: "arxiv", pattern: /\barXiv\s*:?\s*([a-z-]+(?:\.[A-Z]{2})?\/\d{7}(?:v\d+)?|\d{4}\.\d{4,5}(?:v\d+)?)/gi, group: 1 },
   { kind: "pmid", pattern: /\bPMID\s*:?\s*(\d{1,9})\b/gi, group: 1 },
   { kind: "pmcid", pattern: /\b(PMC\d{1,9})\b/gi, group: 1 },
