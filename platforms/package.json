@@ -12,7 +12,7 @@
     "start": "node dist/src/index.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test test/*.test.ts",
+    "test": "tsx --test --test-concurrency=1 test/*.test.ts",
     "smoke:mcp": "npm run build --silent && node dist/scripts/smoke-mcp.js",
     "smoke:verify": "npm run build --silent && node dist/scripts/smoke-verify.js",
     "register:discord": "tsx scripts/register-discord.ts",
