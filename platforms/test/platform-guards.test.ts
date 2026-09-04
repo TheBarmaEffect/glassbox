@@ -18,20 +18,21 @@ test("guild Discord registration removes global-only command fields", () => {
 });
 
 test("Discord delivery rejects before the interaction token expires", async () => {
-  // The stalled promise must not settle on its own, so that the deadline is what rejects.
-  // It is settled explicitly at the end: a promise left pending past the test makes
-  // Node's shared-process test runner report "Promise resolution is still pending but the
-  // event loop has already resolved" and cancel unrelated test files alongside it.
-  let settle!: (value: string) => void;
-  const stalled = new Promise<string>((resolve) => { settle = resolve; });
-  await assert.rejects(withDiscordDeliveryDeadline(stalled, 5), DeliveryDeadlineError);
+  // The delivery deadline timer is unref'd in src/discord.ts, so it cannot by itself keep
+  // the event loop alive. If the pending work it races is a promise with no timer of its
+  // own, the loop drains before the deadline elapses, the deadline never fires, and this
+  // test hangs — which Node reports as "Promise resolution is still pending but the event
+  // loop has already resolved" and charges to every test in the file. So the work must be
+  // slow *and* must hold a ref'd handle: a plain unsettled promise is not enough.
+  let slowTimer: NodeJS.Timeout | undefined;
+  const slow = new Promise<string>((resolve) => {
+    slowTimer = setTimeout(() => resolve("delivered after the deadline"), 60);
+  });
+  await assert.rejects(withDiscordDeliveryDeadline(slow, 5), DeliveryDeadlineError);
   assert.equal(await withDiscordDeliveryDeadline(Promise.resolve("ok"), 50), "ok");
-  settle("released after the deadline had already fired");
-  // Await the settlement, not just trigger it. Returning while the promise's handlers are
-  // still queued lets Node's test runner report "Promise resolution is still pending but
-  // the event loop has already resolved" and cancel the whole file — which is what it did
-  // on CI's Node 20 while passing locally on Node 26.
-  await stalled;
+  // Drain the slow promise so nothing outlives the test.
+  await slow;
+  if (slowTimer) clearTimeout(slowTimer);
 });
 
 test("Reddit polling uses the official unread route and ignores unrelated inbox items", () => {
