@@ -87,6 +87,7 @@ export function buildServer(service: VerificationService): Express {
       checkpoints: ["input", "model_output", "agent_step", "tool_call", "final_output"],
       deterministic_probes: [
         "claim_extraction", "unsupported_certainty", "citation_verifiability",
+        "citation_resolvability",
         "unsupported_specificity", "answer_relevance", "internal_contradiction",
         "arithmetic_sanity", "input_injection", "prompt_injection",
         "credential_exposure", "dangerous_action", "network_boundary", "fact_check_scope",

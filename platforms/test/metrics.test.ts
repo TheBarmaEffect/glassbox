@@ -548,3 +548,41 @@ test("capabilities advertises the metrics endpoint and says plainly what it is n
     "Traffic counters at /api/v1/metrics are in-memory aggregates that reset when the instance restarts; they record categorical outcomes and integers only, never submitted content, and they are not a durable audit log.",
   ));
 });
+
+// ---------------------------------------------------------------------------
+// Label coverage.
+//
+// `probeLabel` buckets any unknown angle into "other", so a probe missing from
+// TRACKED_PROBE_ANGLES is counted but not named. That shipped: the live
+// endpoint reported `{arithmetic_sanity: 1, other: 1}` while the second fire
+// was `citation_resolvability`. A fire rate filed under "other" is not usable
+// per-probe evidence, so the list is checked against what the verifier really
+// emits rather than maintained by hand.
+// ---------------------------------------------------------------------------
+
+test("every probe angle the verifier can emit has its own metrics label", async () => {
+  const { GlassboxLiteVerifier } = await import("../src/lite.js");
+  const { probeLabel, OVERFLOW_LABEL } = await import("../src/metrics.js");
+  const verifier = new GlassboxLiteVerifier(() => new Date("2026-01-01T00:00:00.000Z"));
+
+  const cards = await Promise.all([
+    verifier.verify({ platform: "api", question: "Sources?", answer: "See ISBN 978-0-13-235088-7." }),
+    verifier.verify({ platform: "api", question: "Compute it.", answer: "2 + 2 = 5. It never fails." }),
+    verifier.verify({
+      platform: "api", question: "Read it.", answer: "Calling read_file.",
+      checkpoint: { id: "c", type: "tool_call" },
+      tool: { tool: "read_file", arguments: { path: "a.txt" },
+        declaration: { name: "read_file", description: "Read a file.", input_schema: { type: "object" } } },
+      allowed_tools: ["read_file"],
+    }),
+  ]);
+
+  const overflowed: string[] = [];
+  for (const card of cards) {
+    for (const probe of card.red_team.probes) {
+      if (probe.angle.startsWith("constitution:")) continue; // deliberately collapsed
+      if (probeLabel(probe.angle) === OVERFLOW_LABEL) overflowed.push(probe.angle);
+    }
+  }
+  assert.deepEqual([...new Set(overflowed)], [], "probe angles falling into the overflow bucket");
+});

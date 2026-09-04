@@ -26,6 +26,7 @@ import type { RedTeamProbe, ResponseAction, RuntimeCheckpoint, TrustCard } from 
  */
 export const TRACKED_PROBE_ANGLES = [
   "claim_extraction", "unsupported_certainty", "citation_verifiability",
+  "citation_resolvability",
   "unsupported_specificity", "answer_relevance", "internal_contradiction",
   "arithmetic_sanity", "input_injection", "prompt_injection",
   "credential_exposure", "dangerous_action", "network_boundary", "fact_check_scope",
