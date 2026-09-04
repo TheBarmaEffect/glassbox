@@ -129,6 +129,8 @@ jobs:
             -e PLATFORM_ALLOW_PUBLIC=false \
             -e PLATFORM_PUBLIC_PLATFORMS=mcp \
             -e PLATFORM_RATE_LIMIT=120 \
+            -e PLATFORM_DAILY_REQUEST_LIMIT=5000 \
+            -e PILOT_TENANT_ALLOWLIST=api \
             -e PLATFORM_SHARED_SECRET="$secret" \
             glassbox-gateway:ci
           for attempt in $(seq 1 30); do
