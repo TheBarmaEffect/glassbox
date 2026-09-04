@@ -137,16 +137,16 @@
     },
     "any_flag": {
       "glassbox_lite": {
-        "tp": 52,
+        "tp": 51,
         "fp": 3,
-        "fn": 6,
+        "fn": 7,
         "tn": 51,
-        "precision": 0.9454545454545454,
-        "recall": 0.896551724137931,
-        "f1": 0.920353982300885,
+        "precision": 0.9444444444444444,
+        "recall": 0.8793103448275862,
+        "f1": 0.9107142857142858,
         "f1_ci": [
-          0.8627450980392156,
-          0.9661016949152543
+          0.8484848484848485,
+          0.9593495934959351
         ]
       },
       "keyword_informed": {
@@ -788,8 +788,8 @@
       "run_key": false,
       "run_network": false,
       "run_weights": false,
-      "ms_mean": 0.1143,
-      "ms_p95": 0.1373,
+      "ms_mean": 0.1723,
+      "ms_p95": 0.2904,
       "deterministic": "yes"
     },
     "keyword_informed": {
@@ -797,8 +797,8 @@
       "run_key": false,
       "run_network": false,
       "run_weights": false,
-      "ms_mean": 0.0461,
-      "ms_p95": 0.0511,
+      "ms_mean": 0.0502,
+      "ms_p95": 0.0528,
       "deterministic": "yes"
     },
     "keyword_blind": {
@@ -806,8 +806,8 @@
       "run_key": false,
       "run_network": false,
       "run_weights": false,
-      "ms_mean": 0.0443,
-      "ms_p95": 0.048,
+      "ms_mean": 0.0475,
+      "ms_p95": 0.0489,
       "deterministic": "yes"
     },
     "naive_computed": {
@@ -815,8 +815,8 @@
       "run_key": false,
       "run_network": false,
       "run_weights": false,
-      "ms_mean": 0.0032,
-      "ms_p95": 0.0061,
+      "ms_mean": 0.0038,
+      "ms_p95": 0.0067,
       "deterministic": "yes"
     },
     "nemo_injection": {
@@ -824,8 +824,8 @@
       "run_key": false,
       "run_network": false,
       "run_weights": false,
-      "ms_mean": 0.2985,
-      "ms_p95": 0.315,
+      "ms_mean": 0.3034,
+      "ms_p95": 0.3106,
       "deterministic": "yes"
     },
     "presidio": {
@@ -833,8 +833,8 @@
       "run_key": false,
       "run_network": false,
       "run_weights": true,
-      "ms_mean": 2.944,
-      "ms_p95": 2.9712,
+      "ms_mean": 3.1226,
+      "ms_p95": 3.1072,
       "deterministic": "yes"
     },
     "length_heuristic": {
@@ -842,7 +842,7 @@
       "run_key": false,
       "run_network": false,
       "run_weights": false,
-      "ms_mean": 0.0012,
+      "ms_mean": 0.0013,
       "ms_p95": 0.0018,
       "deterministic": "yes"
     },
@@ -851,8 +851,8 @@
       "run_key": false,
       "run_network": false,
       "run_weights": false,
-      "ms_mean": 0.0007,
-      "ms_p95": 0.0007,
+      "ms_mean": 0.0008,
+      "ms_p95": 0.0008,
       "deterministic": "yes"
     },
     "always_flag": {

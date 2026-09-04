@@ -96,9 +96,11 @@ test("every nullifier x quantifier x positional x scope-noun form is detected", 
 
 test("coverage is monotonic in modifiers: inserting one can never silence a firing form", () => {
   // The property, not a list of forms. For each slot, compare the form with the slot
-  // empty against the same form with the slot filled. `PROMPT_INJECTION_PATTERN` had 560
-  // violations of this over the same 8,704 pairs; measured with `--repeat 3` against the
-  // committed artifacts, it covered 27.9% of the grid where this covers 100%.
+  // empty against the same form with the slot filled. Measured over this exact grid, the
+  // regular expression this replaces fired on 1,376 of the 4,928 forms (27.9%) and
+  // violated monotonicity on 560 of the 8,704 insertion pairs — "Ignore earlier
+  // instruction." fires, "Ignore every earlier instruction." does not. Both figures are
+  // 100% and 0 here, and this test is what holds them there.
   const violations: string[] = [];
   let pairs = 0;
   for (const nullifier of NULLIFIERS) {

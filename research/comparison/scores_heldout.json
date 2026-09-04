@@ -5,16 +5,16 @@
   "protocols": {
     "aligned": {
       "glassbox_lite": {
-        "tp": 24,
+        "tp": 32,
         "fp": 0,
-        "fn": 12,
+        "fn": 4,
         "tn": 33,
         "precision": 1.0,
-        "recall": 0.6666666666666666,
-        "f1": 0.8,
+        "recall": 0.8888888888888888,
+        "f1": 0.9411764705882353,
         "f1_ci": [
-          0.6666666666666666,
-          0.898550724637681
+          0.8727272727272727,
+          0.9870129870129869
         ]
       },
       "keyword_informed": {
@@ -137,16 +137,16 @@
     },
     "any_flag": {
       "glassbox_lite": {
-        "tp": 24,
+        "tp": 32,
         "fp": 3,
-        "fn": 12,
+        "fn": 4,
         "tn": 36,
-        "precision": 0.8888888888888888,
-        "recall": 0.6666666666666666,
-        "f1": 0.761904761904762,
+        "precision": 0.9142857142857143,
+        "recall": 0.8888888888888888,
+        "f1": 0.9014084507042254,
         "f1_ci": [
-          0.6296296296296297,
-          0.8679245283018867
+          0.8181818181818182,
+          0.9662921348314608
         ]
       },
       "keyword_informed": {
@@ -289,13 +289,13 @@
         "f1": 1.0
       },
       "cert": {
-        "tp": 0,
+        "tp": 4,
         "fp": 0,
-        "fn": 4,
+        "fn": 0,
         "tn": 4,
-        "precision": NaN,
-        "recall": 0.0,
-        "f1": 0.0
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
       },
       "cite": {
         "tp": 2,
@@ -307,13 +307,13 @@
         "f1": 0.5
       },
       "inj": {
-        "tp": 0,
+        "tp": 4,
         "fp": 0,
-        "fn": 4,
+        "fn": 0,
         "tn": 4,
-        "precision": NaN,
-        "recall": 0.0,
-        "f1": 0.0
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
       }
     },
     "keyword_informed": {
@@ -788,8 +788,8 @@
       "run_key": false,
       "run_network": false,
       "run_weights": false,
-      "ms_mean": 0.1594,
-      "ms_p95": 0.2968,
+      "ms_mean": 0.2276,
+      "ms_p95": 0.3868,
       "deterministic": "yes"
     },
     "keyword_informed": {
@@ -797,8 +797,8 @@
       "run_key": false,
       "run_network": false,
       "run_weights": false,
-      "ms_mean": 0.0466,
-      "ms_p95": 0.0503,
+      "ms_mean": 0.0489,
+      "ms_p95": 0.052,
       "deterministic": "yes"
     },
     "keyword_blind": {
@@ -806,8 +806,8 @@
       "run_key": false,
       "run_network": false,
       "run_weights": false,
-      "ms_mean": 0.0439,
-      "ms_p95": 0.0466,
+      "ms_mean": 0.045,
+      "ms_p95": 0.0472,
       "deterministic": "yes"
     },
     "naive_computed": {
@@ -815,8 +815,8 @@
       "run_key": false,
       "run_network": false,
       "run_weights": false,
-      "ms_mean": 0.0025,
-      "ms_p95": 0.0068,
+      "ms_mean": 0.0027,
+      "ms_p95": 0.0071,
       "deterministic": "yes"
     },
     "nemo_injection": {
@@ -824,8 +824,8 @@
       "run_key": false,
       "run_network": false,
       "run_weights": false,
-      "ms_mean": 0.3201,
-      "ms_p95": 0.4077,
+      "ms_mean": 0.3145,
+      "ms_p95": 0.3708,
       "deterministic": "yes"
     },
     "presidio": {
@@ -833,8 +833,8 @@
       "run_key": false,
       "run_network": false,
       "run_weights": true,
-      "ms_mean": 3.1341,
-      "ms_p95": 2.8373,
+      "ms_mean": 3.3695,
+      "ms_p95": 3.0223,
       "deterministic": "yes"
     },
     "length_heuristic": {
@@ -842,7 +842,7 @@
       "run_key": false,
       "run_network": false,
       "run_weights": false,
-      "ms_mean": 0.0012,
+      "ms_mean": 0.0013,
       "ms_p95": 0.0018,
       "deterministic": "yes"
     },
@@ -852,7 +852,7 @@
       "run_network": false,
       "run_weights": false,
       "ms_mean": 0.0006,
-      "ms_p95": 0.0007,
+      "ms_p95": 0.0008,
       "deterministic": "yes"
     },
     "always_flag": {
@@ -861,7 +861,7 @@
       "run_network": false,
       "run_weights": false,
       "ms_mean": 0.0001,
-      "ms_p95": 0.0001,
+      "ms_p95": 0.0002,
       "deterministic": "yes"
     },
     "never_flag": {

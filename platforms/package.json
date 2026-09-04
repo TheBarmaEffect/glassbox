@@ -13,6 +13,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsx --test --test-concurrency=1 test/*.test.ts",
+    "test:live": "node scripts/live-e2e.mjs",
+    "check:ci-guards": "node scripts/check-test-summary.mjs --selftest && node scripts/audit-gate.mjs --selftest && node scripts/node-version-check.mjs",
     "smoke:mcp": "npm run build --silent && node dist/scripts/smoke-mcp.js",
     "smoke:verify": "npm run build --silent && node dist/scripts/smoke-verify.js",
     "register:discord": "tsx scripts/register-discord.ts",

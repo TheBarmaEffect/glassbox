@@ -30,6 +30,11 @@ jobs:
   snapshot:
     name: Record gateway counters
     runs-on: ubuntu-latest
+    # The fetch step allows three attempts at up to 90s each plus backoff, so the whole job
+    # should finish in well under six minutes. Without an explicit timeout the default is
+    # six hours, and a curl that never returns would hold a runner all night for the sake
+    # of one snapshot.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:

@@ -105,6 +105,24 @@ function section(title) {
   console.log("-".repeat(title.length));
 }
 
+/**
+ * Run a block of assertions, turning any thrown error into a recorded failure.
+ *
+ * A live test hits a service that can answer with anything, including an HTML error page
+ * from the platform in front of it. When that happened during development the script died
+ * on a JSON parse with a stack trace and printed no summary — the worst possible output,
+ * because the reader cannot tell which assertions ran. Every block that parses a response
+ * goes through here so that a surprising response is a legible failure.
+ */
+async function guard(label, block) {
+  try {
+    return await block();
+  } catch (error) {
+    fail(label, error.message);
+    return undefined;
+  }
+}
+
 // --- transport -------------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -180,7 +198,27 @@ async function callTool(args, id) {
   if (typeof inner !== "string") {
     throw new Error(`/mcp result carried no text content: ${JSON.stringify(envelope.result).slice(0, 200)}`);
   }
-  return { payload: JSON.parse(inner), envelope, response };
+  const payload = JSON.parse(inner);
+  // An MCP tool reports failure inside a successful HTTP response, as `isError` on the
+  // result. Without this branch a refusal was unwrapped as if it were a verification and
+  // every field assertion failed with "got undefined" — a confusing report of a
+  // perfectly clear refusal.
+  if (envelope.result?.isError === true) {
+    const error = new Error(payload?.error ?? "the tool reported an error with no message");
+    error.mcpToolError = payload;
+    throw error;
+  }
+  return { payload, envelope, response };
+}
+
+/**
+ * The gateway rate-limits per caller, on purpose. Being throttled is the gateway working,
+ * not the gateway broken, so it is reported as a skip. It must never be silently ignored
+ * either: the run says it was throttled, and the metrics-delta assertion below is
+ * skipped rather than compared against calls that never happened.
+ */
+function isThrottled(error) {
+  return /rate limit|too many requests|429/i.test(error?.message ?? "");
 }
 
 // --- source of truth for the probe set -------------------------------------------------
@@ -434,12 +472,12 @@ if (!healthResponse) {
 section("Advertised capabilities against this checkout");
 
 let capabilities = null;
-{
+await guard("/api/v1/capabilities", async () => {
   const { status, text } = await request("/api/v1/capabilities");
   check("/api/v1/capabilities returns HTTP 200", status === 200,
     `got HTTP ${status}`, "HTTP 200");
   if (status === 200) capabilities = parseJsonBody(text, "/api/v1/capabilities");
-}
+});
 
 let advertisedProbes = [];
 if (!capabilities) {
@@ -489,15 +527,15 @@ if (!capabilities) {
 section("Behaviour through the public MCP endpoint");
 
 let metricsBefore = null;
-{
+await guard("/api/v1/metrics (baseline)", async () => {
   const { status, text } = await request("/api/v1/metrics");
   if (status === 200) metricsBefore = parseJsonBody(text, "/api/v1/metrics");
   else fail("/api/v1/metrics returns HTTP 200", `got HTTP ${status}`);
-}
+});
 
 // 6. tools/list -------------------------------------------------------------------------
 
-{
+await guard("/mcp tools/list", async () => {
   const { status, text } = await request("/mcp", {
     method: "POST",
     headers: {
@@ -512,13 +550,14 @@ let metricsBefore = null;
     const tools = parseSse(text).result?.tools ?? [];
     check(`/mcp advertises ${MCP_TOOL}`,
       tools.some((tool) => tool.name === MCP_TOOL),
-      `tools: ${tools.map((tool) => tool.name).join(", ") || "(none)"}`);
+      `tools: ${tools.map((tool) => tool.name).join(", ") || "(none)"}`,
+      `${tools.length} tool(s) advertised`);
     const tool = tools.find((candidate) => candidate.name === MCP_TOOL);
     check(`${MCP_TOOL} is annotated read-only`,
       tool?.annotations?.readOnlyHint === true,
-      `annotations: ${JSON.stringify(tool?.annotations)}`);
+      `annotations: ${JSON.stringify(tool?.annotations)}`, "readOnlyHint=true");
   }
-}
+});
 
 // 7. Behavioural cases ------------------------------------------------------------------
 // Every case below was run against production before being asserted here; the expected
@@ -599,12 +638,29 @@ const CASES = [
   },
 ];
 
+let verifiedCalls = 0;
+let throttled = false;
+
 for (const testCase of CASES) {
+  if (throttled) {
+    skip(testCase.label, "skipped: the gateway rate-limited an earlier call in this run. " +
+      "Hammering a limiter that is working correctly proves nothing.");
+    continue;
+  }
   try {
     const { payload } = await callTool(testCase.args, testCase.id);
+    verifiedCalls += 1;
     assertResultShape(testCase.label, payload, advertisedProbes);
     testCase.assert(payload);
   } catch (error) {
+    if (isThrottled(error)) {
+      throttled = true;
+      skip(testCase.label,
+        "the gateway rate-limited this call. That is the limiter doing its job, not a " +
+        "defect, so it is not counted as a failure. If a scheduled run is throttled every " +
+        "time, the schedule is competing with other traffic from the same egress address.");
+      continue;
+    }
     fail(testCase.label, error.message);
   }
 }
@@ -613,7 +669,7 @@ for (const testCase of CASES) {
 
 section("Metrics are aggregates and carry no submitted content");
 
-{
+await guard("/api/v1/metrics", async () => {
   const { status, text } = await request("/api/v1/metrics");
   if (status !== 200) {
     fail("/api/v1/metrics returns HTTP 200", `got HTTP ${status}`);
@@ -634,15 +690,20 @@ section("Metrics are aggregates and carry no submitted content");
       const delta = (metrics.verifications?.total ?? 0) - (metricsBefore.verifications?.total ?? 0);
       const restarted = new Date(metrics.since).getTime() !== new Date(metricsBefore.since).getTime();
       if (restarted) {
-        skip("the sentinel submission reached the counters",
+        skip("the submissions reached the counters",
           "the instance restarted mid-run (in-memory counters reset), so the delta is not " +
           "comparable. The absence checks below still ran.");
+      } else if (verifiedCalls === 0) {
+        skip("the submissions reached the counters",
+          "no verification call completed, so there is nothing to have been counted. The " +
+          "sentinel-absence checks below are correspondingly weaker this run.");
       } else {
-        check("the sentinel submission reached the counters",
-          delta >= CASES.length,
-          `verifications.total moved by ${delta}; expected at least ${CASES.length}. ` +
-          "If the submissions were not counted, finding no content in the metrics proves nothing.",
-          `verifications.total +${delta}`);
+        check("the submissions reached the counters",
+          delta >= verifiedCalls,
+          `verifications.total moved by ${delta}; expected at least ${verifiedCalls} ` +
+          "(the number of calls that completed). If the submissions were not counted, " +
+          "finding no content in the metrics proves nothing.",
+          `verifications.total +${delta} for ${verifiedCalls} call(s)`);
       }
     }
 
@@ -664,13 +725,13 @@ section("Metrics are aggregates and carry no submitted content");
       `free-text or over-long strings found: ${JSON.stringify(suspicious.slice(0, 5))}`,
       "every label and value outside notes[] is a short identifier");
   }
-}
+});
 
 // 9. The authenticated endpoints --------------------------------------------------------
 
 section("Shared-secret endpoints");
 
-{
+await guard("unauthenticated gate", async () => {
   // Checkable without the key: the gate must be closed to an anonymous caller.
   const verify = await request("/api/v1/verify", {
     method: "POST",
@@ -687,7 +748,7 @@ section("Shared-secret endpoints");
   });
   check("/api/v1/govern rejects an unauthenticated caller",
     govern.status === 401, `got HTTP ${govern.status}: ${govern.text.slice(0, 160)}`, "HTTP 401");
-}
+});
 
 const secret = process.env.PLATFORM_SHARED_SECRET;
 if (!secret) {
@@ -782,6 +843,20 @@ console.log(`requests issued: ${requests} (budget ${MAX_REQUESTS})`);
 console.log(`passed:          ${passed}`);
 console.log(`skipped:         ${skips.length}`);
 console.log(`failed:          ${failures.length}`);
+console.log(`verifications:   ${verifiedCalls} of ${CASES.length} behavioural cases completed`);
+
+// A run where nothing was verified is not a passing run, it is a run that asserted almost
+// nothing — and it must not read as a clean bill of health just because no assertion
+// failed. Being throttled is still not a defect, so this is a warning and not an exit
+// code: the distinction between "the gateway is fine" and "we did not check" belongs in
+// the output, not in a footnote.
+if (throttled || verifiedCalls === 0) {
+  console.log(
+    `::warning::live e2e: only ${verifiedCalls} of ${CASES.length} behavioural cases ran` +
+    `${throttled ? " (the gateway rate-limited this run)" : ""}. The verdict assertions ` +
+    "that did not run have proved nothing either way.",
+  );
+}
 
 if (failures.length > 0) {
   console.log("");

@@ -1,0 +1,110 @@
+name: Live end-to-end (deployed gateway)
+
+# Exercises the *deployed* gateway and asserts real behaviour.
+#
+# Why this is a separate workflow and not a CI job:
+#
+# It must never gate a deploy. The gateway runs on a free Render instance that sleeps after
+# roughly fifteen idle minutes; a cold start, or an instance that is simply asleep, is a
+# property of the hosting plan and not a defect in a commit. Wiring that into the deploy
+# gate would mean blocking releases on the weather, and — worse — it would train everyone
+# to ignore a red gate, which is how a real failure gets missed.
+#
+# But it must be visible. So it runs on a schedule, it fails loudly, it writes a summary to
+# the run page rather than burying the result in a log, and it opens nothing and retries
+# nothing silently.
+#
+# The blocking counterpart lives in ci.yml: the `docker-image` job runs the same script
+# against a container built from the commit under test, where a cold start is not an
+# available excuse.
+
+on:
+  schedule:
+    # Twice a day. The instance sleeps between runs, which the script handles; running more
+    # often would mostly measure Render's wake-up latency.
+    - cron: "0 7,19 * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Gateway base URL to test against"
+        required: false
+        default: "https://glassbox-platform-gateway.onrender.com"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-e2e
+  cancel-in-progress: false
+
+jobs:
+  live:
+    name: Assert deployed behaviour
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # The same Node the gateway is built with, from the same single source of truth.
+          node-version-file: .nvmrc
+
+      - name: Live end-to-end suite
+        id: live
+        env:
+          # Optional. When absent the script skips the authenticated /verify and /govern
+          # assertions with a stated reason and still asserts that both endpoints reject an
+          # unauthenticated caller. Never echoed, printed, or written to a log.
+          PLATFORM_SHARED_SECRET: ${{ secrets.PLATFORM_SHARED_SECRET }}
+          BASE_URL: ${{ inputs.base_url || 'https://glassbox-platform-gateway.onrender.com' }}
+        run: |
+          set -o pipefail
+          # The script already retries /health with backoff for a cold start. This second
+          # attempt covers the case where the instance was still waking when the script gave
+          # up: a whole-run retry, once, after a pause long enough for a Render cold start
+          # to finish. Anything still failing after that is worth a human reading.
+          for attempt in 1 2; do
+            if node platforms/scripts/live-e2e.mjs --base="$BASE_URL" --no-color \
+                 2>&1 | tee "live-e2e-attempt-${attempt}.log"; then
+              echo "outcome=pass" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [ "$attempt" -eq 1 ]; then
+              echo "::warning::live end-to-end suite failed on attempt 1; retrying once after 60s in case the instance was still waking"
+              sleep 60
+            fi
+          done
+          echo "outcome=fail" >> "$GITHUB_OUTPUT"
+          exit 1
+
+      - name: Write the result to the run summary
+        if: always()
+        run: |
+          # On the run page rather than only in the log: a scheduled workflow nobody opens
+          # is not a signal. The last attempt's output is the authoritative one.
+          {
+            echo "## Live end-to-end against the deployed gateway"
+            echo ""
+            echo "- outcome: \`${{ steps.live.outputs.outcome || 'error' }}\`"
+            echo "- run at: $(date -u +%Y-%m-%dT%H:%MZ)"
+            echo ""
+            echo '```'
+            latest=$(ls -1t live-e2e-attempt-*.log 2>/dev/null | head -1)
+            if [ -n "$latest" ]; then
+              # The tail carries the summary and every ::error:: line.
+              tail -60 "$latest"
+            else
+              echo "the suite produced no output at all; the step failed before it ran"
+            fi
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the full output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-e2e-logs
+          path: live-e2e-attempt-*.log
+          if-no-files-found: warn
+          retention-days: 30

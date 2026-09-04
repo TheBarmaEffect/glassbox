@@ -77,10 +77,19 @@ export function verdictFor(text, { minPass = 1, runnerExit = 0 } = {}) {
   const problems = [];
 
   if (!complete) {
+    // These two cases have different causes and want different first moves, so they get
+    // different messages. Several jobs run this guard over a composite script
+    // (typecheck && test && build); when the typecheck fails, no test summary is printed
+    // and "nothing was tested" would be a misleading way to say so.
     problems.push(
-      "no complete node:test summary block was found in the runner output. The runner did " +
-      "not reach the end of the run, so nothing here is evidence that any test passed. " +
-      "Treat this as a failure, not as a reporting quirk.",
+      runnerExit !== 0
+        ? `the runner exited ${runnerExit} without printing a node:test summary, so the ` +
+          "tests did not finish — or never started. The cause is earlier in this log, " +
+          "before or during test collection: a failed typecheck, a bad import, or a crash " +
+          "in a preceding step of the same script."
+        : "no complete node:test summary block was found in the runner output, and the " +
+          "runner exited 0. Nothing here is evidence that any test ran. Check that the " +
+          "test command actually invoked node:test and that its glob matched files.",
     );
     // Without counters there is nothing further to check: the counter checks below would
     // compare `undefined` and quietly pass.
@@ -194,7 +203,21 @@ const FIXTURES = [
     lines: ["SyntaxError: Unexpected token", "    at file:///app/test/x.test.ts:1"],
     options: { runnerExit: 1 },
     expectOk: false,
-    expectMatch: /no complete node:test summary/,
+    expectMatch: /exited 1 without printing a node:test summary/,
+  },
+  {
+    name: "a composite script that failed before its tests ran says so",
+    lines: ["src/index.ts:12:5 - error TS2345: Argument of type 'string'..."],
+    options: { runnerExit: 2 },
+    expectOk: false,
+    expectMatch: /before or during test collection/,
+  },
+  {
+    name: "no summary and a zero exit is still a failure",
+    lines: ["nothing to do"],
+    options: { runnerExit: 0 },
+    expectOk: false,
+    expectMatch: /exited 0\. Nothing here is evidence/,
   },
   {
     name: "a clean summary cannot mask a non-zero runner exit",

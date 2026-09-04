@@ -65,57 +65,63 @@
     "glassbox_dataset_determinism.json": {
       "dataset": "dataset.jsonl",
       "digests": [
-        "bb438555dcbad9702035554739ca2b13515f0054eee46fdc717f88a016b973f2"
+        "3bcfd47a49084df22f2487ec5155eb809a52e05a572ae1df4c0aae27b9d2401d",
+        "3bcfd47a49084df22f2487ec5155eb809a52e05a572ae1df4c0aae27b9d2401d"
       ],
       "identical": true,
-      "repeats": 1
+      "repeats": 2
     },
     "glassbox_heldout_determinism.json": {
       "dataset": "heldout.jsonl",
       "digests": [
-        "5618b49ce3da3a204a54a8d06a88a7b6ec317b8432281bd5c89f64a247510e19"
+        "d1b0cca7b9c4250786678883f52c1fd7819ba0a79a998ffaa23bc83c73f3d038",
+        "d1b0cca7b9c4250786678883f52c1fd7819ba0a79a998ffaa23bc83c73f3d038"
       ],
       "identical": true,
-      "repeats": 1
+      "repeats": 2
     },
     "thirdparty_nemo_injection_dataset_determinism.json": {
       "dataset": "dataset.jsonl",
       "digests": [
+        "53d186c70a7eb6b4e4052522c29d5bb6ea56265534edbc76d4ee012768d54d93",
         "53d186c70a7eb6b4e4052522c29d5bb6ea56265534edbc76d4ee012768d54d93"
       ],
       "identical": true,
-      "load_seconds": 0.198,
-      "repeats": 1,
+      "load_seconds": 0.197,
+      "repeats": 2,
       "system": "nemo_injection"
     },
     "thirdparty_nemo_injection_heldout_determinism.json": {
       "dataset": "heldout.jsonl",
       "digests": [
+        "583db9d267dad17bd8e7511a14f8be7d5acf6db3de67735ed60a93bc1582f2a6",
         "583db9d267dad17bd8e7511a14f8be7d5acf6db3de67735ed60a93bc1582f2a6"
       ],
       "identical": true,
-      "load_seconds": 0.288,
-      "repeats": 1,
+      "load_seconds": 0.397,
+      "repeats": 2,
       "system": "nemo_injection"
     },
     "thirdparty_presidio_dataset_determinism.json": {
       "dataset": "dataset.jsonl",
       "digests": [
+        "034fe4b43b873a2f0398e71282d36dbc63cecfbd026fbb884b0d6f228c90a481",
         "034fe4b43b873a2f0398e71282d36dbc63cecfbd026fbb884b0d6f228c90a481"
       ],
       "identical": true,
-      "load_seconds": 0.708,
-      "repeats": 1,
+      "load_seconds": 0.72,
+      "repeats": 2,
       "system": "presidio"
     },
     "thirdparty_presidio_heldout_determinism.json": {
       "dataset": "heldout.jsonl",
       "digests": [
+        "b9982b744726c30cce5b1b6b37dd3dcdab2b1ba42caea0167fc7845c6d68cec3",
         "b9982b744726c30cce5b1b6b37dd3dcdab2b1ba42caea0167fc7845c6d68cec3"
       ],
       "identical": true,
-      "load_seconds": 0.814,
-      "repeats": 1,
+      "load_seconds": 1.178,
+      "repeats": 2,
       "system": "presidio"
     }
   },
@@ -150,70 +156,70 @@
         "digest": "3d40daf314da79dcea45f9d9847973615f48130101fe312312fd29d2c9f96422",
         "ms_mean": 0.0001,
         "ms_median": 0.0001,
-        "ms_p95": 0.0001,
+        "ms_p95": 0.0002,
         "n": 75
       }
     },
     "glassbox_lite": {
       "dataset": {
-        "digest": "08390222678a1fa48d16b5c6c2dee08e16c7a372b8ab5ab7644bec9160afaf58",
-        "ms_mean": 0.1143,
-        "ms_median": 0.0348,
-        "ms_p95": 0.1373,
+        "digest": "589e04821555929551378a9f62f24ceeb085f7914e04905af483b8c3737c01f9",
+        "ms_mean": 0.1723,
+        "ms_median": 0.0661,
+        "ms_p95": 0.2904,
         "n": 112
       },
       "heldout": {
-        "digest": "5d9aca33a2b810e5188ab29fedb2d14c019c3cf2483265296e79f3f4f7a1f715",
-        "ms_mean": 0.1594,
-        "ms_median": 0.0359,
-        "ms_p95": 0.2968,
+        "digest": "7e0ce64f201a2a553cf7391a4a56b8c16dd3c92774bb38fa2e6731d248bdbe9f",
+        "ms_mean": 0.2276,
+        "ms_median": 0.0669,
+        "ms_p95": 0.3868,
         "n": 75
       }
     },
     "keyword_blind": {
       "dataset": {
         "digest": "652f0ac46b08eb523db5d45ebf3d5d96dea1781fa42829bf72baab434155d695",
-        "ms_mean": 0.0443,
-        "ms_median": 0.0445,
-        "ms_p95": 0.048,
+        "ms_mean": 0.0475,
+        "ms_median": 0.0454,
+        "ms_p95": 0.0489,
         "n": 112
       },
       "heldout": {
         "digest": "8ef5de60239b4e928b5a965af68486df4c4359f0369f7a26f1b2ddbd6a7c3fa3",
-        "ms_mean": 0.0439,
-        "ms_median": 0.0434,
-        "ms_p95": 0.0466,
+        "ms_mean": 0.045,
+        "ms_median": 0.0452,
+        "ms_p95": 0.0472,
         "n": 75
       }
     },
     "keyword_informed": {
       "dataset": {
         "digest": "8497c5359297fe989f6daebaa5fe6e5541c6f9f3e3c5ee790e8206ec7083e257",
-        "ms_mean": 0.0461,
-        "ms_median": 0.0461,
-        "ms_p95": 0.0511,
+        "ms_mean": 0.0502,
+        "ms_median": 0.0506,
+        "ms_p95": 0.0528,
         "n": 112
       },
       "heldout": {
         "digest": "732366a3fc7fa0e57ba7124a2f99702026b06c8d7d30a1a9eafc00c04699e945",
-        "ms_mean": 0.0466,
-        "ms_median": 0.0465,
-        "ms_p95": 0.0503,
+        "ms_mean": 0.0489,
+        "ms_median": 0.049,
+        "ms_p95": 0.052,
         "n": 75
       }
     },
     "length_heuristic": {
       "dataset": {
         "digest": "379a0186cf47a231d997d6b163d58d5d3f4fa53b877184381b746d97c0fd800f",
-        "ms_mean": 0.0012,
-        "ms_median": 0.0012,
+        "ms_mean": 0.0013,
+        "ms_median": 0.0011,
         "ms_p95": 0.0018,
         "n": 112
       },
       "heldout": {
         "digest": "b7fdb83c75e59166b396a046422990d897273690d15bcff44f977249ea30617c",
-        "ms_mean": 0.0012,
-        "ms_median": 0.0012,
+        "ms_mean": 0.0013,
+        "ms_median": 0.0013,
         "ms_p95": 0.0018,
         "n": 75
       }
@@ -221,32 +227,32 @@
     "naive_computed": {
       "dataset": {
         "digest": "4adb1af1ba2d4d198662336516f4dbaeb1ef2c62d46036e32699ff2b321ca586",
-        "ms_mean": 0.0032,
+        "ms_mean": 0.0038,
         "ms_median": 0.0018,
-        "ms_p95": 0.0061,
+        "ms_p95": 0.0067,
         "n": 112
       },
       "heldout": {
         "digest": "cc4072ee0bd162d2f78d0adc6b829b47a5c88201c53d2920550cfd2f82b4499c",
-        "ms_mean": 0.0025,
-        "ms_median": 0.0016,
-        "ms_p95": 0.0068,
+        "ms_mean": 0.0027,
+        "ms_median": 0.0017,
+        "ms_p95": 0.0071,
         "n": 75
       }
     },
     "nemo_injection": {
       "dataset": {
         "digest": "285ed2c9c0ab9552d48840daa7210134940eb2cbb3024c960679576991859750",
-        "ms_mean": 0.2985,
-        "ms_median": 0.288,
-        "ms_p95": 0.315,
+        "ms_mean": 0.3034,
+        "ms_median": 0.295,
+        "ms_p95": 0.3106,
         "n": 112
       },
       "heldout": {
         "digest": "704b60d39994c9c714d9656ebfa03272a7680f75117585236aff80b42d355075",
-        "ms_mean": 0.3201,
-        "ms_median": 0.2922,
-        "ms_p95": 0.4077,
+        "ms_mean": 0.3145,
+        "ms_median": 0.2901,
+        "ms_p95": 0.3708,
         "n": 75
       }
     },
@@ -261,7 +267,7 @@
       "heldout": {
         "digest": "704b60d39994c9c714d9656ebfa03272a7680f75117585236aff80b42d355075",
         "ms_mean": 0.0001,
-        "ms_median": 0.0,
+        "ms_median": 0.0001,
         "ms_p95": 0.0001,
         "n": 75
       }
@@ -269,32 +275,32 @@
     "presidio": {
       "dataset": {
         "digest": "a85454f99d96321f5ec9cdd2526ca9e1307d591137be23ffbb880d02cc9b6d34",
-        "ms_mean": 2.944,
-        "ms_median": 2.3839,
-        "ms_p95": 2.9712,
+        "ms_mean": 3.1226,
+        "ms_median": 2.5579,
+        "ms_p95": 3.1072,
         "n": 112
       },
       "heldout": {
         "digest": "19b6cb9496e26142d24e1512b33ecf7ebeb09df9548c1dcadf0db7a23a277c84",
-        "ms_mean": 3.1341,
-        "ms_median": 2.3509,
-        "ms_p95": 2.8373,
+        "ms_mean": 3.3695,
+        "ms_median": 2.4165,
+        "ms_p95": 3.0223,
         "n": 75
       }
     },
     "random_p": {
       "dataset": {
         "digest": "ebaa118739f5ff5a522d7c530640eb11e883ccdfb2b9bef2bb95a1e6e715a766",
-        "ms_mean": 0.0007,
+        "ms_mean": 0.0008,
         "ms_median": 0.0005,
-        "ms_p95": 0.0007,
+        "ms_p95": 0.0008,
         "n": 112
       },
       "heldout": {
         "digest": "e0eb663735574c012400894578c48aa2ec0aa3bbb3f6586e11022f4ad0e66403",
         "ms_mean": 0.0006,
         "ms_median": 0.0005,
-        "ms_p95": 0.0007,
+        "ms_p95": 0.0008,
         "n": 75
       }
     }

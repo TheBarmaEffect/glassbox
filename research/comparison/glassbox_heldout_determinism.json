@@ -1,8 +1,9 @@
 {
   "dataset": "heldout.jsonl",
-  "repeats": 1,
+  "repeats": 2,
   "identical": true,
   "digests": [
-    "5618b49ce3da3a204a54a8d06a88a7b6ec317b8432281bd5c89f64a247510e19"
+    "d1b0cca7b9c4250786678883f52c1fd7819ba0a79a998ffaa23bc83c73f3d038",
+    "d1b0cca7b9c4250786678883f52c1fd7819ba0a79a998ffaa23bc83c73f3d038"
   ]
 }
