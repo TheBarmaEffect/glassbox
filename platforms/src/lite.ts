@@ -84,8 +84,13 @@ const VAGUE_SOURCE_PATTERN = new RegExp(
 );
 const SOURCE_REQUEST_PATTERN =
   /\b(?:fact[- ]?check|verify (?:the )?facts?|is (?:this|that|it) true|correctness|cite|citation|source|evidence|reference|bibliograph)\b/i;
+// The trailing \b after "%" only holds when a word character follows, so "87.4% of cases"
+// never matched while "87.4%," did. Same defect as the dead `100\s*%` certainty branch and
+// the `rm -rf /` miss: a word boundary anchored to a non-word character. A precise count
+// introduced by "exactly"/"precisely" is a specificity claim even without a unit, and was
+// recovered from an untracked working copy along with this fix.
 const SPECIFIC_FACT_PATTERN =
-  /(?:\b(?:19|20)\d{2}\b|\b\d+(?:\.\d+)?\s*%\b|[$€£]\s*\d|\bCVE-\d{4}-\d{4,}\b|\b\d+(?:\.\d+)?\s*(?:mg|ml|g|kg|GB|TB|ms)\b)/i;
+  /(?:\b(?:19|20)\d{2}\b|\b\d+(?:\.\d+)?\s*%|[$€£]\s*\d|\bCVE-\d{4}-\d{4,}\b|\b\d+(?:\.\d+)?\s*(?:mg|ml|g|kg|GB|TB|ms)\b|\b(?:exactly|precisely)\s+\d[\d,]*(?:\.\d+)?)/i;
 /**
  * Actionable specificity that carries no number, so SPECIFIC_FACT_PATTERN cannot see it.
  *
