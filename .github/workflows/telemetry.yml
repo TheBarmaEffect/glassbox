@@ -1,0 +1,123 @@
+name: Telemetry snapshot
+
+# Retains the gateway's traffic counters.
+#
+# /api/v1/metrics is an in-memory aggregate: the free Render instance sleeps after about
+# fifteen minutes idle, and the counters reset with it. Counting was solved by adding the
+# endpoint; *keeping* the counts is a separate problem, and an IAAI-style deployment claim
+# needs a continuous record rather than whatever happens to be in memory when someone looks.
+#
+# Snapshots are committed to a dedicated `telemetry` branch, never to the tracked branch.
+# That is not tidiness: auto-deploy watches the tracked branch, so a snapshot committed
+# there would redeploy the service and reset the very counters it just recorded.
+
+on:
+  schedule:
+    # Every three hours. The instance sleeps after ~15 minutes idle, so this cannot
+    # capture every request; it captures each waking period's totals before they are lost,
+    # and the record says so rather than implying continuous coverage.
+    - cron: "0 */3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: telemetry
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    name: Record gateway counters
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Switch to the telemetry branch, creating it if needed
+        run: |
+          # Checked out the default branch, which always exists, then move to the
+          # telemetry branch. Creating it as an orphan keeps the snapshot history
+          # independent of the source history, so it can be pruned without touching code.
+          if git ls-remote --exit-code --heads origin telemetry >/dev/null 2>&1; then
+            git fetch -q origin telemetry
+            git checkout -q -B telemetry origin/telemetry
+          else
+            git checkout -q --orphan telemetry
+            git rm -rq --cached . 2>/dev/null || true
+            find . -mindepth 1 -maxdepth 1 -not -name .git -exec rm -rf {} +
+          fi
+          mkdir -p snapshots
+
+      - name: Fetch the counters
+        id: fetch
+        run: |
+          set -o pipefail
+          base="https://glassbox-platform-gateway.onrender.com"
+          # A sleeping free instance needs a cold start; allow for it rather than
+          # recording a spurious outage.
+          for attempt in 1 2 3; do
+            if body=$(curl -fsS --max-time 90 "$base/api/v1/metrics"); then
+              printf '%s' "$body" > /tmp/metrics.json
+              echo "ok=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::warning::metrics unreachable on attempt $attempt"
+            sleep $((attempt * 20))
+          done
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+
+      - name: Append the snapshot
+        run: |
+          stamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          month=$(date -u +%Y-%m)
+          file="snapshots/metrics-${month}.jsonl"
+          if [ "${{ steps.fetch.outputs.ok }}" = "true" ]; then
+            # The endpoint publishes aggregates only — no submitted content, no per-request
+            # identifiers. Recorded verbatim so the snapshot is exactly what was served.
+            python3 - "$stamp" "$file" <<'PY'
+          import json, sys
+          stamp, path = sys.argv[1], sys.argv[2]
+          with open("/tmp/metrics.json", encoding="utf-8") as handle:
+              payload = json.load(handle)
+          with open(path, "a", encoding="utf-8") as out:
+              out.write(json.dumps({"observed_at": stamp, "reachable": True, "metrics": payload},
+                                   sort_keys=True, separators=(",", ":")) + "\n")
+          PY
+          else
+            # An unreachable instance is itself a deployment finding, so it is recorded
+            # rather than skipped. A gap in the series would otherwise be unreadable.
+            printf '{"observed_at":"%s","reachable":false}\n' "$stamp" >> "$file"
+          fi
+          cat > README.md <<'MD'
+          # Telemetry snapshots
+
+          Periodic captures of `GET /api/v1/metrics` from the deployed GlassBox gateway.
+
+          This branch exists because the counters are in-memory and the free Render
+          instance sleeps after roughly fifteen minutes idle, taking the counts with it.
+          Each line is one observation of the totals as served at that moment.
+
+          **These are not continuous traffic figures, and must not be reported as such.**
+          A snapshot covers whatever the instance had accumulated since it last woke.
+          Requests served and lost between snapshots are not represented, so the series is
+          a lower bound on volume, not a measurement of it. `reachable: false` lines record
+          the instance being unavailable, which is a deployment observation in its own
+          right rather than a gap to be quietly dropped.
+
+          Content is aggregate-only by construction: the endpoint publishes counts,
+          distributions and latency buckets, never submitted content.
+          MD
+          git add snapshots README.md
+
+      - name: Commit
+        run: |
+          git config user.name "glassbox-telemetry[bot]"
+          git config user.email "glassbox-telemetry@users.noreply.github.com"
+          if git diff --cached --quiet; then
+            echo "nothing to record"
+            exit 0
+          fi
+          git commit -q -m "Telemetry snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q origin telemetry

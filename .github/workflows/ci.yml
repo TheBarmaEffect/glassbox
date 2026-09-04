@@ -33,13 +33,24 @@ jobs:
       - name: Audit production dependencies
         run: |
           for attempt in 1 2 3; do
-            if out=$(npm audit --omit=dev --audit-level=high 2>&1); then
+            # Each attempt is capped: a failing advisory endpoint can hang for five or six
+            # minutes before npm gives up, which turned a retry loop into a twenty-minute
+            # job. Exit 124 is the cap firing and is treated as a transport error.
+            # `timeout` is coreutils and present on the runners, but guard anyway: a
+            # missing binary would otherwise exit 127 and be misread as a real finding.
+            cap=""
+            command -v timeout >/dev/null 2>&1 && cap="timeout 90"
+            set +e
+            out=$($cap npm audit --omit=dev --audit-level=high 2>&1)
+            code=$?
+            set -e
+            if [ "$code" -eq 0 ]; then
               printf '%s\n' "$out"; exit 0
             fi
-            if printf '%s' "$out" | grep -qiE 'audit endpoint returned an error|Service Unavailable|Bad Request|ETIMEDOUT|ENOTFOUND|ECONNRESET|network timeout'; then
-              echo "::warning::npm audit endpoint error on attempt $attempt; retrying"
+            if [ "$code" -eq 124 ] || printf '%s' "$out" | grep -qiE 'audit endpoint returned an error|Service Unavailable|Bad Request|ETIMEDOUT|ENOTFOUND|ECONNRESET|network timeout'; then
+              echo "::warning::npm audit endpoint unreachable on attempt $attempt (exit $code); retrying"
               printf '%s\n' "$out" | tail -3
-              sleep $((attempt * 20))
+              sleep $((attempt * 10))
               continue
             fi
             printf '%s\n' "$out"
@@ -88,13 +99,24 @@ jobs:
       - name: Audit production dependencies
         run: |
           for attempt in 1 2 3; do
-            if out=$(npm audit --omit=dev --audit-level=high 2>&1); then
+            # Each attempt is capped: a failing advisory endpoint can hang for five or six
+            # minutes before npm gives up, which turned a retry loop into a twenty-minute
+            # job. Exit 124 is the cap firing and is treated as a transport error.
+            # `timeout` is coreutils and present on the runners, but guard anyway: a
+            # missing binary would otherwise exit 127 and be misread as a real finding.
+            cap=""
+            command -v timeout >/dev/null 2>&1 && cap="timeout 90"
+            set +e
+            out=$($cap npm audit --omit=dev --audit-level=high 2>&1)
+            code=$?
+            set -e
+            if [ "$code" -eq 0 ]; then
               printf '%s\n' "$out"; exit 0
             fi
-            if printf '%s' "$out" | grep -qiE 'audit endpoint returned an error|Service Unavailable|Bad Request|ETIMEDOUT|ENOTFOUND|ECONNRESET|network timeout'; then
-              echo "::warning::npm audit endpoint error on attempt $attempt; retrying"
+            if [ "$code" -eq 124 ] || printf '%s' "$out" | grep -qiE 'audit endpoint returned an error|Service Unavailable|Bad Request|ETIMEDOUT|ENOTFOUND|ECONNRESET|network timeout'; then
+              echo "::warning::npm audit endpoint unreachable on attempt $attempt (exit $code); retrying"
               printf '%s\n' "$out" | tail -3
-              sleep $((attempt * 20))
+              sleep $((attempt * 10))
               continue
             fi
             printf '%s\n' "$out"
@@ -135,13 +157,24 @@ jobs:
       - name: Audit production dependencies
         run: |
           for attempt in 1 2 3; do
-            if out=$(npm audit --omit=dev --audit-level=high 2>&1); then
+            # Each attempt is capped: a failing advisory endpoint can hang for five or six
+            # minutes before npm gives up, which turned a retry loop into a twenty-minute
+            # job. Exit 124 is the cap firing and is treated as a transport error.
+            # `timeout` is coreutils and present on the runners, but guard anyway: a
+            # missing binary would otherwise exit 127 and be misread as a real finding.
+            cap=""
+            command -v timeout >/dev/null 2>&1 && cap="timeout 90"
+            set +e
+            out=$($cap npm audit --omit=dev --audit-level=high 2>&1)
+            code=$?
+            set -e
+            if [ "$code" -eq 0 ]; then
               printf '%s\n' "$out"; exit 0
             fi
-            if printf '%s' "$out" | grep -qiE 'audit endpoint returned an error|Service Unavailable|Bad Request|ETIMEDOUT|ENOTFOUND|ECONNRESET|network timeout'; then
-              echo "::warning::npm audit endpoint error on attempt $attempt; retrying"
+            if [ "$code" -eq 124 ] || printf '%s' "$out" | grep -qiE 'audit endpoint returned an error|Service Unavailable|Bad Request|ETIMEDOUT|ENOTFOUND|ECONNRESET|network timeout'; then
+              echo "::warning::npm audit endpoint unreachable on attempt $attempt (exit $code); retrying"
               printf '%s\n' "$out" | tail -3
-              sleep $((attempt * 20))
+              sleep $((attempt * 10))
               continue
             fi
             printf '%s\n' "$out"
@@ -173,13 +206,24 @@ jobs:
       - name: Audit production dependencies
         run: |
           for attempt in 1 2 3; do
-            if out=$(npm audit --omit=dev --audit-level=high 2>&1); then
+            # Each attempt is capped: a failing advisory endpoint can hang for five or six
+            # minutes before npm gives up, which turned a retry loop into a twenty-minute
+            # job. Exit 124 is the cap firing and is treated as a transport error.
+            # `timeout` is coreutils and present on the runners, but guard anyway: a
+            # missing binary would otherwise exit 127 and be misread as a real finding.
+            cap=""
+            command -v timeout >/dev/null 2>&1 && cap="timeout 90"
+            set +e
+            out=$($cap npm audit --omit=dev --audit-level=high 2>&1)
+            code=$?
+            set -e
+            if [ "$code" -eq 0 ]; then
               printf '%s\n' "$out"; exit 0
             fi
-            if printf '%s' "$out" | grep -qiE 'audit endpoint returned an error|Service Unavailable|Bad Request|ETIMEDOUT|ENOTFOUND|ECONNRESET|network timeout'; then
-              echo "::warning::npm audit endpoint error on attempt $attempt; retrying"
+            if [ "$code" -eq 124 ] || printf '%s' "$out" | grep -qiE 'audit endpoint returned an error|Service Unavailable|Bad Request|ETIMEDOUT|ENOTFOUND|ECONNRESET|network timeout'; then
+              echo "::warning::npm audit endpoint unreachable on attempt $attempt (exit $code); retrying"
               printf '%s\n' "$out" | tail -3
-              sleep $((attempt * 20))
+              sleep $((attempt * 10))
               continue
             fi
             printf '%s\n' "$out"
