@@ -19,7 +19,7 @@ import {
   grammarFailures,
 } from "../src/citation.js";
 import { GlassboxLiteVerifier } from "../src/lite.js";
-import { isBlockedHost, networkBoundaryFinding } from "../src/network.js";
+import { isBlockedHost, networkBoundaryFinding, targetMatchesValue } from "../src/network.js";
 import { dangerousActionSignals } from "../src/signals.js";
 import { stableStringify } from "../src/toolcall.js";
 import type { RedTeamProbe, TrustCard } from "../src/types.js";
@@ -237,4 +237,25 @@ test("the IPv4-translated IPv6 form is blocked like the IPv4-mapped one", () => 
   assert.equal(isBlockedHost("::ffff:127.0.0.1"), true);
   assert.equal(isBlockedHost("::ffff:0:127.0.0.1"), true);
   assert.ok(networkBoundaryFinding("http://[::ffff:0:127.0.0.1]/"));
+});
+
+// ---------------------------------------------------------------------------
+// Wildcard sense. A deny rule widens to the apex; an allow rule does not.
+// ---------------------------------------------------------------------------
+
+test("a deny wildcard covers the apex, because a narrow deny fails open", () => {
+  assert.equal(targetMatchesValue("https://internal.corp/x", "*.internal.corp", "deny"), true);
+  assert.equal(targetMatchesValue("https://api.internal.corp/x", "*.internal.corp", "deny"), true);
+});
+
+test("an allow wildcard does not cover the apex, because a broad allow fails open too", () => {
+  assert.equal(targetMatchesValue("https://internal.corp/x", "*.internal.corp", "allow"), false);
+  assert.equal(targetMatchesValue("https://api.internal.corp/x", "*.internal.corp", "allow"), true);
+});
+
+test("neither sense is spoofable by a lookalike sibling label", () => {
+  for (const sense of ["deny", "allow"] as const) {
+    assert.equal(targetMatchesValue("https://evil-internal.corp/x", "*.internal.corp", sense), false);
+    assert.equal(targetMatchesValue("https://internal.corp.evil.test/x", "*.internal.corp", sense), false);
+  }
 });

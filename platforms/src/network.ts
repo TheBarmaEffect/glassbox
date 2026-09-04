@@ -241,15 +241,36 @@ export function canonicalTarget(value: string): string {
 }
 
 /** Does a checkpoint target match a constitution rule value, comparing canonical forms? */
-export function targetMatchesValue(target: string, ruleValue: string): boolean {
+/**
+ * How a wildcard is read depends on which way the rule points, and the asymmetry is
+ * deliberate. `*.internal.corp` follows DNS convention and does not cover the apex, so a
+ * rule reading `forbid_target: *.internal.corp` would leave `https://internal.corp/`
+ * permitted — almost certainly not what whoever wrote it meant. A deny rule that is
+ * narrower than intended fails open; an allow rule that is broader than intended does the
+ * same. So a deny widens to include the apex, and an allow stays narrow. Both directions
+ * fail closed.
+ */
+export type TargetRuleSense = "deny" | "allow";
+
+export function targetMatchesValue(
+  target: string,
+  ruleValue: string,
+  sense: TargetRuleSense = "allow",
+): boolean {
   const normalizedValue = ruleValue.trim().toLowerCase();
   if (normalizedValue.startsWith("*.")) {
     const suffix = normalizedValue.slice(1);
+    const apex = normalizedValue.slice(2);
+    let host: string;
     try {
-      return normalizeHost(new URL(target).hostname).endsWith(suffix);
+      host = normalizeHost(new URL(target).hostname);
     } catch {
-      return target.toLowerCase().endsWith(suffix);
+      host = target.trim().toLowerCase();
     }
+    // The leading dot in `suffix` is what stops "evil-internal.corp" matching
+    // "*.internal.corp"; keep it rather than comparing bare substrings.
+    if (host.endsWith(suffix)) return true;
+    return sense === "deny" && host === apex;
   }
   return canonicalTarget(target) === canonicalTarget(ruleValue);
 }
