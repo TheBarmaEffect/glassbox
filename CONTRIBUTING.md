@@ -31,7 +31,11 @@ make hps-validate        # HPS empirical validation
 
 Before opening a PR:
 
-1. **`make verify` passes locally.** All 157 tests + ruff + mypy strict.
+1. **`make verify` passes locally.** ruff + mypy strict, and the test suite green.
+   Quote a count only with the suite it belongs to: `core/tests` collects 182 and the
+   2026-09-04 re-run gave 180 passed / 1 failed / 1 skipped, while the TypeScript
+   gateway suite is separate at 266. The previous "157 tests" figure is not
+   reproducible at this commit and combined two unrelated suites.
 2. **New behavior has a test.** Coverage is not the metric; behavioral specificity is. A test for "X fires when Y" is worth more than a test that hits 100% of lines.
 3. **Schema changes are additive and documented.** New optional field? Add a row in `CHANGELOG.md`. Hash-affecting change? Bump `schema_version` AND add a migrator path.
 4. **No new required dependencies in the verification core.** Optional extras are fine — add to `[project.optional-dependencies]` in `pyproject.toml`.
