@@ -1,0 +1,11 @@
+{
+  "dataset": "truthfulqa",
+  "items": 1580,
+  "repeats": 2,
+  "identical": true,
+  "digests": [
+    "649370745055828495d6aa1c276105e3228ef8371ea52d6b5a5d9f858c5b2bfc",
+    "649370745055828495d6aa1c276105e3228ef8371ea52d6b5a5d9f858c5b2bfc"
+  ],
+  "ms_per_item_per_pass": 0.043
+}

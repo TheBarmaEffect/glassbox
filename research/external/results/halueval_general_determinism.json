@@ -1,0 +1,11 @@
+{
+  "dataset": "halueval_general",
+  "items": 5000,
+  "repeats": 2,
+  "identical": true,
+  "digests": [
+    "86130b8c943181b4442f0cf50d2c4732ac6e4230dfa881f482937726f8b2e1e9",
+    "86130b8c943181b4442f0cf50d2c4732ac6e4230dfa881f482937726f8b2e1e9"
+  ],
+  "ms_per_item_per_pass": 0.2538
+}

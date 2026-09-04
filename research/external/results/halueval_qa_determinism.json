@@ -1,0 +1,11 @@
+{
+  "dataset": "halueval_qa",
+  "items": 4000,
+  "repeats": 2,
+  "identical": true,
+  "digests": [
+    "8a023aeb04aa621bc4f0ea499c038d144165167229b4fa859e260fd6610ba317",
+    "8a023aeb04aa621bc4f0ea499c038d144165167229b4fa859e260fd6610ba317"
+  ],
+  "ms_per_item_per_pass": 0.056
+}

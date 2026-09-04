@@ -1,0 +1,10 @@
+{
+  "dataset": "halueval_dialogue",
+  "items": 4000,
+  "repeats": 1,
+  "identical": true,
+  "digests": [
+    "e4d588d8902d617849030cbd63dc4d3a856e223549202bceb9ec9f2917a600ef"
+  ],
+  "ms_per_item_per_pass": 0.166
+}

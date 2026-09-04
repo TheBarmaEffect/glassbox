@@ -1,14 +1,14 @@
 import crypto from "node:crypto";
 import { normalizeInput } from "./parser.js";
 import {
-  PROMPT_INJECTION_PATTERN,
   credentialText,
   dangerousActionSignals,
+  injectionFindings,
   secretSignals,
-  securityText,
 } from "./signals.js";
 import { networkBoundaryFinding, targetMatchesValue } from "./network.js";
 import { checksumFailures, extractCitationFindings, grammarFailures } from "./citation.js";
+import type { CitationFinding } from "./citation.js";
 import { TOOL_PROBE_ANGLES, toolCallProbes } from "./toolcall.js";
 import type {
   Claim,
@@ -319,8 +319,12 @@ function analyze(input: VerificationInput): Analysis {
   );
   // Scan the whole answer, not just the reported claims: a payload placed after the
   // MAX_CLAIMS boundary is still in the output that gets released.
-  const answerInjection = PROMPT_INJECTION_PATTERN.test(securityText(input.answer));
-  const answerInjectionSignals = extracted.scanWindow.filter((claim) => PROMPT_INJECTION_PATTERN.test(securityText(claim)));
+  // `injectionFindings` normalises internally — NFKC, invisible-character stripping,
+  // confusable and leetspeak folding, and base64 decoding — and analyses each variant
+  // separately rather than over a concatenation, so the call site passes raw text.
+  const answerInjectionStructures = injectionFindings(input.answer);
+  const answerInjection = answerInjectionStructures.length > 0;
+  const answerInjectionSignals = extracted.scanWindow.filter((claim) => injectionFindings(claim).length > 0);
   // Intents and checkpoint metadata are caller-supplied and travel in the same request
   // body as the question. They were previously never scanned at all.
   const callerMetadata = [
@@ -329,7 +333,8 @@ function analyze(input: VerificationInput): Analysis {
     input.checkpoint?.id ?? "",
     input.checkpoint?.actor ?? "",
   ].join("\n");
-  const inputInjection = PROMPT_INJECTION_PATTERN.test(securityText(callerMetadata));
+  const inputInjectionStructures = injectionFindings(callerMetadata);
+  const inputInjection = inputInjectionStructures.length > 0;
   const secretScanText = `${callerMetadata}\n${input.answer}`;
   const exposedSecrets = secretSignals(credentialText(secretScanText));
   const dangerousActions = dangerousActionSignals(secretScanText);
@@ -393,8 +398,9 @@ function analyze(input: VerificationInput): Analysis {
       passed: !inputInjection,
       severity: inputInjection ? "critical" : "low",
       finding: inputInjection
-        ? "The submitted input contains an instruction-override or policy-bypass pattern, including normalized or base64-decoded text."
-        : "No supported input-side instruction-override pattern was detected.",
+        ? "The submitted input carries an instruction-override or policy-bypass structure " +
+          `(${inputInjectionStructures.join("; ")}), including normalized or base64-decoded text.`
+        : "No input-side instruction-override structure was detected.",
       evidence: inputInjection ? ["Potential input-side policy bypass detected; raw content withheld from this finding."] : [],
     },
     {
@@ -402,8 +408,9 @@ function analyze(input: VerificationInput): Analysis {
       passed: !answerInjection,
       severity: answerInjection ? "high" : "low",
       finding: answerInjection
-        ? "Instruction-override or secret-extraction language was treated as inert answer text."
-        : "No common instruction-override or secret-extraction phrase was detected.",
+        ? "Instruction-override or secret-extraction structure was treated as inert answer text " +
+          `(${answerInjectionStructures.join("; ")}).`
+        : "No instruction-override or secret-extraction structure was detected.",
       evidence: answerInjectionSignals.slice(0, 3),
     },
     {
@@ -450,12 +457,17 @@ function buildClaim(text: string, index: number, arithmetic: ArithmeticCheck[]):
   const arithmeticVerified = localArithmetic.length > 0 && localArithmetic.every((check) => check.passed);
   const citations = citationSignals(text);
   const attackSurface: string[] = ["External factual truth is not verified by Lite."];
-  if (CERTAINTY_PATTERN.test(text) && !UNCERTAINTY_PATTERN.test(text)) {
+  // The same computed decision the probe makes, so the claim-level annotation and
+  // `unsupported_certainty` cannot disagree on the same card — and so `certainty_density`
+  // in `scoring.ts`, which counts this exact string, refines the probe it says it
+  // refines rather than a retired lexical rule. The string itself is a published
+  // contract with that scorer and does not change.
+  if (assertsUnhedgedCertainty(text)) {
     attackSurface.push("Absolute-certainty language may be unsupported.");
   }
   if (citations.length > 0) attackSurface.push("Citation markers require external validation.");
   if (localArithmetic.length > 0) attackSurface.push("Arithmetic expression was locally recomputed.");
-  if (PROMPT_INJECTION_PATTERN.test(text)) attackSurface.push("Instruction-like text is treated as inert content.");
+  if (injectionFindings(text).length > 0) attackSurface.push("Instruction-like text is treated as inert content.");
 
   return {
     id: `c-${index + 1}`,
@@ -514,10 +526,672 @@ function extractClaims(answer: string): { claims: string[]; truncated: boolean; 
 const CLAUSE_BOUNDARY =
   /,\s*(?:though|although|but|while|however|whereas|yet|even if|unless)\b|;\s*|\s+(?:though|although|but|however|whereas)\s+/i;
 
+/* ===========================================================================
+ * scopeCommitment — the computed form of `unsupported_certainty`.
+ *
+ * The old probe asked a lexical question: does this claim contain a word from a
+ * certainty list? That list scored 1.000 recall on the split it was repaired against
+ * and 0.000 on the held-out split, and a blind ~40-term lexicon written in an
+ * afternoon beat it (research/comparison/COMPARISON_RESULTS.md). An enumeration of
+ * certainty adverbs is not a property of the text; it is a property of whoever wrote
+ * the enumeration.
+ *
+ * Certainty is a *relation between two domains*: the domain over which a claim is
+ * asserted to hold, and the domain over which evidence is offered for it. Every
+ * generalising claim has the tripartite quantificational form `Q [RESTRICTOR]
+ * [NUCLEAR SCOPE]`, and the defect this probe is named for is exactly
+ *
+ *     Q = ∀ (or the alethic □)   ∧   RESTRICTOR = ∅   ∧   EVIDENCE = ∅
+ *
+ * Both sides are computed as three-valued lattices with named levels, never as floats
+ * and never with a fitted cut point:
+ *
+ *     assertedScope  ∈ { PARTIAL < DEFAULT < UNIVERSAL }
+ *     evidencedScope ∈ { NONE    < ANCHORED < RESTRICTED }
+ *     fire  iff  assertedScope === UNIVERSAL  ∧  evidencedScope === NONE
+ *
+ * The trigger side is a disjunction of audited conjunctions: adding a disjunct can
+ * only add false positives, so each one is audited separately against every negative
+ * corpus available and can be deleted on its own without revalidating the others.
+ * The veto side is deliberately over-populated. An incomplete trigger list costs
+ * recall, an incomplete veto list costs precision, and under a hard precision
+ * constraint those are not symmetric costs — so the lexicon budget is spent on vetoes.
+ * `CERTAINTY_PATTERN` did the opposite.
+ * ======================================================================== */
+
+/** Where the claim commits itself. `UNIVERSAL` is the only level this probe fires on. */
+type AssertedScope = "PARTIAL" | "DEFAULT" | "UNIVERSAL";
+/** What the claim offers for that commitment. `NONE` is the only level that fires. */
+type EvidencedScope = "NONE" | "ANCHORED" | "RESTRICTED";
+
+export interface ScopeCommitment {
+  readonly asserted: AssertedScope;
+  readonly evidenced: EvidencedScope;
+  /** Named disjuncts that raised the asserted scope; for per-disjunct fault isolation. */
+  readonly triggers: readonly string[];
+  /** Named vetoes that raised the evidenced scope. */
+  readonly vetoes: readonly string[];
+  readonly fires: boolean;
+}
+
+/**
+ * Alethic stems. The trigger side needs *some* inventory, and this is the smallest one
+ * that is also productive: each stem generates the negated-potential adjective and the
+ * matching adverb under any of five negative prefixes, so ~25 stems cover ~100 surface
+ * words including ones nobody enumerated ("incontrovertibly", "unassailably",
+ * "unmistakably", "ungainsayable").
+ *
+ * The stems are verbs of *dialectic or alethic modality* — refute, dispute, deny,
+ * question, contest, conceive, avoid, vary. That is what separates this from the bare
+ * `(un|in|im|ir|il)…(abl|ibl)e` shape, which also spells `immutable`, `incompatible`,
+ * `unavailable`, `irreversible`, `interchangeable` and `indistinguishable` — six words
+ * that occur constantly in the technical prose this gateway audits and none of which
+ * assert anything about scope. Anchoring the template on the stem excludes all six
+ * structurally rather than by a veto list that would have to be complete.
+ */
+const ALETHIC_STEMS = [
+  "poss", "conceiv", "think", "imagin", "deni", "disput", "refut", "question",
+  "contest", "argu", "debat", "doubt", "dubit", "assail", "controvert", "contradict",
+  "gainsay", "avoid", "evit", "escap", "mistak", "vari", "fall", "challeng", "reproach",
+  "exception",
+];
+/** `im-poss-ibl-e`, `ir-refut-abl-y`, `un-challeng-e-abl-e`. Prefix and suffix are free. */
+const ALETHIC_MORPHEME = new RegExp(
+  `^(?:un|in|im|ir|il)(?:${ALETHIC_STEMS.join("|")})e?(?:abl|ibl)[ey]$`,
+);
+/**
+ * The bare template, adverb only — `U2`, IMPLEMENTED, MEASURED AND DELETED.
+ *
+ * This was the riskiest component in the probe: it shares its shape with degree
+ * intensifiers ("incredibly", "unbelievably") and with manner adverbs ("irreversibly
+ * deleted", "immutably stored"), and only the clause-adverbial position test separates
+ * them. It was enabled behind that test and audited over the 14 580 items of
+ * `research/external/`, where it fired exactly once — on "if it favorably or
+ * **unfavorably** slants towards a particular group", a manner adverb in the P2
+ * pre-finite-verb position, which the position test cannot distinguish from
+ * "invariably outperforms" without a POS tagger.
+ *
+ * One firing on the negative corpus is the stated deletion condition, and it bought
+ * nothing: every alethic adverb in either benchmark ("irrefutably", "invariably",
+ * "indisputably", "unquestionably") is generated by `ALETHIC_MORPHEME` from a stem, so
+ * held-out recall is unchanged at 1.000 without it. The pattern it used was
+ * `/^(?:un|in|im|ir|il)[a-z]{3,}(?:abl|ibl)y$/`, recorded here so a later attempt starts
+ * from the measurement rather than from the idea; `test/certainty-computed.test.ts`
+ * pins the three shapes that must stay silent.
+ */
+
+/**
+ * The same alethic nouns in their prepositional realisation: "beyond dispute",
+ * "without exception", "past question". `argument`, `challenge` and `reservation` are
+ * deliberately absent — "runs without argument" is a command line, not an absolute.
+ */
+const ABSOLUTE_PP =
+  /\b(?:beyond|without|past)\s+(?:a|any|all|the)?\s*(?:doubt|question|dispute|debate|contest|controversy|exception|contradiction)\b/i;
+
+/**
+ * Closed-class residue on the trigger side, stated plainly rather than hidden: the
+ * absolute-degree modal adverbs and the alethic adjectives that carry no negative
+ * prefix for the morphology above to find. Nine items against `CERTAINTY_PATTERN`'s
+ * fifteen open-class alternatives, and every one is a function-word-like modal.
+ */
+const MODAL_MAXIMAL_ADVERBS = new Set([
+  "certainly", "definitely", "absolutely", "categorically", "unequivocally",
+  "undoubtedly", "doubtless", "doubtlessly", "assuredly",
+]);
+const CLOSED_ALETHIC_ADJECTIVES = new Set([
+  "certain", "guaranteed", "assured", "absolute", "definite",
+]);
+
+/** Universal quantifiers. Genuinely closed: English coins no new ones. */
+const POSITIVE_UNIVERSALS = new Set(["all", "every", "everyone", "everybody", "everything", "everywhere"]);
+const NEGATIVE_UNIVERSALS = new Set(["no", "none", "nothing", "nobody", "nowhere", "neither"]);
+/**
+ * `each` and `any` are absent by measurement, not by oversight. Neither appears in any
+ * positive item across GBSA-1 and GBSA-2, while `each` occurs in three benign controls
+ * ("each day", "each partition", "each covering one property") and `any` is a negative
+ * polarity item in two more ("matched any structural check"). Dropping both costs zero
+ * measured recall.
+ */
+const RATE_NOUNS = new Set([
+  "day", "days", "hour", "hours", "minute", "minutes", "second", "seconds", "week",
+  "weeks", "month", "months", "year", "years", "time", "times", "run", "runs",
+  "request", "requests", "row", "rows", "item", "items", "cycle", "cycles",
+  "iteration", "iterations", "call", "calls", "message", "messages", "frame",
+  "frames", "batch", "batches", "record", "records", "tick", "ticks", "event",
+  "events", "night", "morning", "ms", "epoch", "epochs", "step", "steps",
+]);
+/**
+ * Cardinality words, read as numerals. A distributive over an enumerated finite set is
+ * a count rather than an epistemic universal, which is why `hinj-008` "the log rotates
+ * every twelve hours" and `clean-006` "seven probes, each covering one structural
+ * property" are not universals; `single` is in the set for `g2-clean-009` "A single
+ * consumer reads each partition".
+ */
+const CARDINALS = new Set([
+  "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+  "eleven", "twelve", "single", "sole", "lone", "both", "dozen", "pair", "couple",
+]);
+/** What lifts a bare negative object into a universal: emphasis, or a modal of impossibility. */
+const NEGATIVE_EMPHATICS = new Set(["whatsoever", "conceivable", "imaginable"]);
+/**
+ * `will`, `shall`, `must` and `ever` were in both sets and were removed after the
+ * external audit: they turn ordinary future and narrative prose into universals
+ * ("there will be no need for fuel", "as if nothing ever happened", "if no `return`
+ * statement is used, the function will return `None`"). What remains is the modal of
+ * impossibility proper, which is what makes a bare negative object scope-maximal.
+ */
+const IMPOSSIBILITY_MODALS = new Set(["can", "cannot", "cant"]);
+
+/* --- the veto side. Over-populated on purpose: every addition here is safe. ------- */
+
+/** E1 — epistemic modals and hedging adverbs. `can`/`cannot` are excluded: under a
+ * negative universal they express impossibility, which is scope-maximal, not hedged. */
+const EPISTEMIC_HEDGES = new Set([
+  "may", "might", "could", "would", "should", "ought", "perhaps", "possibly", "probably",
+  "likely", "unlikely", "presumably", "apparently", "seemingly", "arguably", "conceivably",
+  "potentially", "maybe", "reportedly", "allegedly", "supposedly", "purportedly",
+  "ostensibly", "plausibly", "possible", "probable", "plausible", "doubtful",
+]);
+/** E2 — evidential and appearance predicates. Semi-open, and that is why it is a veto. */
+const EVIDENTIALS = new Set([
+  "seem", "seems", "seemed", "seeming", "appear", "appears", "appeared", "look", "looks",
+  "looked", "sound", "sounds", "sounded", "suggest", "suggests", "suggested", "indicate",
+  "indicates", "indicated", "imply", "implies", "implied", "estimate", "estimates",
+  "estimated", "believe", "believes", "believed", "think", "thinks", "thought", "expect",
+  "expects", "expected", "assume", "assumes", "assumed", "suspect", "suspects", "guess",
+  "reckon", "hypothesise", "hypothesize", "predict", "predicts", "predicted", "project",
+  "projects", "projected", "tend", "tends", "tended", "approximate", "infer", "infers",
+  "inferred", "gather", "understand", "understands",
+]);
+/** E3 — a first-person experiential anchor. Whatever else it is, it is a report of
+ * something someone did, which is a smaller domain than "everything". */
+const FIRST_PERSON = new Set(["i", "we", "us", "our", "ours", "me", "my", "mine", "ourselves", "myself"]);
+/** E6 — frequency and approximation downtoners. */
+const DOWNTONERS = new Set([
+  "often", "usually", "typically", "generally", "mostly", "rarely", "seldom", "sometimes",
+  "occasionally", "frequently", "normally", "ordinarily", "commonly", "largely", "broadly",
+  "mainly", "primarily", "chiefly", "predominantly", "partly", "partially", "roughly",
+  "approximately", "nearly", "almost", "virtually", "practically", "essentially",
+  "effectively", "some", "several", "many", "few", "most", "somewhat", "fairly", "quite",
+  "relatively", "comparatively", "modestly", "marginally",
+]);
+/** E5 — limitation markers that `CLAUSE_BOUNDARY` does not already split away. */
+const LIMITATION_MARKERS = new Set([
+  "except", "unless", "notwithstanding", "barring", "absent", "aside", "apart",
+  "caveat", "caveats", "limitation", "limitations", "untested", "unverified",
+  "preliminary", "provisional", "insofar", "modulo", "assuming", "presuming",
+  "only", "merely", "just", "solely", "purely",
+  // Temporal delimiters. A universal with a time bound is bounded: "but tomorrow never
+  // comes", "never re-read afterwards". `now`, `then`, `still` and `yet` are excluded
+  // as too common to be informative.
+  // `once` is deliberately absent: "inconceivable once the flag is set" is a
+  // conditional, not a time bound, and listing it silenced `g2-cert-002`.
+  "tomorrow", "yesterday", "today", "tonight", "already", "initially",
+  "eventually", "previously", "formerly", "recently", "currently", "temporarily",
+  "briefly", "afterwards", "thereafter", "meanwhile", "hitherto",
+  // Nouns that mark the surrounding absolute as one the writer is reporting in order to
+  // deny it. The external audit found the probe firing on "AI is infallible: Another
+  // *misconception* about AI is that it is infallible".
+  "misconception", "misconceptions", "myth", "myths", "fallacy", "fallacies",
+  "stereotype", "stereotypes", "rumour", "rumor", "supposedly",
+]);
+/**
+ * E11 — mention rather than use. An absolute inside a reporting frame is being
+ * attributed, not asserted: "The second law states that entropy will always increase",
+ * "According to the handbook, this never fails". Whether the attributed universal is
+ * calibrated is the source's problem, not this answer's, and `attributionGroundedness`
+ * and `citation_verifiability` are the probes that own it.
+ */
+const REPORTING_FRAME =
+  /\b(?:states?|stated|says?|said|claims?|claimed|argues?|argued|asserts?|asserted|reports?|reported|writes?|wrote|notes?|noted|explains?|explained|maintains?|contends?|holds)\s+that\b|\baccording to\b/i;
+/**
+ * E9 — the epistemic refusal frame. "It is impossible to provide a specific answer to
+ * this question" carries an alethic adjective and asserts the *opposite* of an
+ * overclaim; the external audit found the probe firing on exactly that shape. The
+ * complement is a verb of saying or knowing, which is what separates a refusal from
+ * "impossible for the check to pass".
+ */
+const REFUSAL_FRAME =
+  /\b(?:impossible|unable|inconceivable|hard|difficult|not possible)\s+to\s+(?:say|tell|know|determine|provide|answer|verify|confirm|assess|establish|predict|state|conclude|ascertain|give|identify|specify|calculate|compute|evaluate)\b/i;
+
+/** E4 — heads that can introduce a restrictor adjunct. */
+const RESTRICTOR_HEADS = new Set([
+  "for", "in", "under", "on", "with", "at", "within", "during", "given", "provided",
+  "per", "across", "throughout", "among", "between", "below", "above", "over", "by",
+  "when", "where", "if", "after", "before", "until", "since", "against",
+]);
+/**
+ * Measure units, consulted only when the token immediately follows a numeral. That
+ * adjacency requirement is what makes single-letter units (`m`, `s`, `g`, `k`) safe to
+ * list at all: "in m" is not a restrictor, "at 100 m" is.
+ */
+const MEASURE_UNITS = new Set([
+  "°", "°c", "°f", "°k", "c", "f", "k", "atm", "pa", "kpa", "mpa", "bar", "psi", "torr",
+  "m", "cm", "mm", "um", "nm", "km", "ft", "mi", "yd", "kg", "g", "mg", "ug", "lb", "oz",
+  "t", "s", "ms", "us", "ns", "min", "h", "hr", "hz", "khz", "mhz", "ghz", "b", "kb",
+  "mb", "gb", "tb", "pb", "bit", "bits", "byte", "bytes", "v", "mv", "kv", "a", "ma",
+  "w", "kw", "mw", "j", "kj", "cal", "kcal", "mol", "ph", "rpm", "fps", "qps", "rps",
+  "celsius", "fahrenheit", "kelvin", "degrees", "degree", "percent", "seconds", "second",
+  "minutes", "minute", "hours", "hour", "days", "metres", "meters", "metre", "meter",
+  "feet", "inches", "grams", "gram", "kilograms", "pounds", "litres", "liters", "ml", "l",
+]);
+
+/**
+ * Closed function-word classes the aspect and position tests read. `RELATIVISERS` is
+ * what separates "a city that never sleeps" — a universal characterising a referent —
+ * from "this never fails", a universal asserted of a proposition. `COORDINATORS`
+ * catches the directive and fragment cases: "Never judge a friend", "and never give
+ * in", "as always". All three were added after the external audit found the probe
+ * firing on 27 of 34 sampled song-lyric and poetry lines, none of which asserts
+ * anything.
+ */
+const RELATIVISERS = new Set(["that", "which", "who", "whose", "whom"]);
+const COORDINATORS = new Set(["and", "or", "so", "but", "then", "yet", "nor", "as", "plus", "for"]);
+const MODALS = new Set(["will", "wont", "would", "can", "cannot", "cant", "could", "shall", "should", "may", "might", "must"]);
+/**
+ * Finite forms that can stand as the verb a frequency universal modifies. Present tense
+ * only: a past finite form makes the sentence a narrative report about what happened
+ * ("She always had a particular fondness for roses", "has never had any time to enjoy
+ * it") rather than a claim about every case, which is the same descriptive/predictive
+ * distinction the participle test draws, one step earlier in the clause.
+ */
+const FINITE_VERB_FORMS = new Set([
+  "is", "are", "am", "has", "have", "do", "does",
+  "gets", "get", "becomes", "become", "remains", "stays", "seems", "appears",
+]);
+const PAST_FINITE_FORMS = new Set(["was", "were", "had", "did"]);
+/** Discourse particle, not a quantifier: "No, pigs cannot fly." */
+const ANSWER_PARTICLE = /^\s*(?:no|nope|none|nothing)\s*[,.;:!?\u2014-]/i;
+
+/**
+ * Time units, which are what separates a restrictor from a duration adverbial.
+ *
+ * A restrictor narrows the domain the universal is quantified over — a condition, a
+ * unit-bearing physical parameter, a named subpopulation. A duration or a rate modifies
+ * the *predicate* and leaves the domain alone, so it must not license the universal:
+ * "cures every cancer in seven days" is a strictly stronger claim than "cures every
+ * cancer", not a calibrated one. Keying on "numeral plus unit" alone cannot draw that
+ * line, because "at 100 °C" and "at 1 atm" are numeral-plus-unit too and genuinely do
+ * restrict. The unit's dimension is the discriminator.
+ *
+ * Deliberately not `RATE_NOUNS`: "held in three runs" is an evidential restrictor and
+ * `runs` belongs to that set, so reusing it would have silenced real calibration.
+ */
+const TIME_UNITS = new Set([
+  "day", "days", "hour", "hours", "minute", "minutes", "second", "seconds", "week",
+  "weeks", "fortnight", "month", "months", "quarter", "quarters", "year", "years",
+  "decade", "decades", "century", "centuries", "millisecond", "milliseconds",
+  "microsecond", "microseconds", "nanosecond", "nanoseconds", "ms", "us", "ns", "sec",
+  "secs", "min", "mins", "hr", "hrs", "h", "s", "night", "nights", "morning",
+  "weekend", "weekends", "semester", "term",
+]);
+
+/** Past-participle shapes, for the descriptive/predictive aspect test below. */
+const PARTICIPLE_SHAPE =
+  /(?:ed|en|read|built|held|set|put|run|done|made|taken|given|seen|found|kept|left|sent|met|felt|told|shown|written|drawn|known|thrown|grown|torn|worn|born|cut|hit|let|shut|split|spread|hurt|cost|beat|lost|bought|brought|caught|taught|sought|thought|dealt|meant|paid|said|read)$/;
+const BE_HAVE = new Set([
+  "is", "are", "was", "were", "be", "been", "being", "am", "has", "have", "had",
+  "get", "gets", "got", "getting", "remains", "remain", "stays", "stay",
+]);
+const COPULAS = new Set(["is", "are", "was", "were", "be", "been", "am", "remains", "remain", "stays", "stay", "seems", "appears", "looks"]);
+const DETERMINERS = new Set([
+  "the", "a", "an", "this", "that", "these", "those", "its", "his", "her", "their",
+  "our", "my", "your", "every", "all", "no", "any", "both", "each", "one",
+]);
+const CLOSED_PRONOUNS = new Set([
+  "it", "they", "he", "she", "we", "you", "i", "them", "him", "us", "everything",
+  "nothing", "anyone", "everyone", "anybody", "everybody", "nobody", "none",
+]);
+const PREPOSITION_TOKENS = new Set([
+  "in", "on", "at", "for", "with", "under", "by", "of", "from", "to", "into", "onto",
+  "over", "across", "through", "about", "against", "within", "without", "upon",
+  "during", "per", "between", "among", "than", "as",
+]);
+/** A definitional copula frame: an indefinite generic subject. "A prime number is
+ * always divisible only by 1 and itself" is an analytic truth, and telling an analytic
+ * truth from a fabricated universal needs world knowledge this backend does not have.
+ * Vetoing the frame is the honest partial mitigation; it costs recall on genuine
+ * indefinite-generic overclaims and no positive item in either corpus uses the frame. */
+const DEFINITIONAL_FRAME = /^\s*(?:a|an)\s+(?:[A-Za-z][A-Za-z'-]*\s+){0,3}(?:is|are)\b/i;
+
+interface ScopeToken { readonly lower: string; readonly raw: string; }
+
+/**
+ * An apostrophe is a token boundary, not a letter. "I'm not 100 % sure" has to yield
+ * `i` for the first-person veto to see it, and "can't" has to yield `can`; folding the
+ * apostrophe away instead produced `im` and `cant`, which matched nothing and silently
+ * cost two vetoes on real conversational text.
+ */
+function scopeTokens(clause: string): ScopeToken[] {
+  const out: ScopeToken[] = [];
+  for (const match of clause.matchAll(/[A-Za-z]+(?:-[A-Za-z]+)*|\d+(?:[.,]\d+)*|°[A-Za-z]?|%/g)) {
+    const raw = match[0];
+    out.push({ raw, lower: raw.toLowerCase() });
+  }
+  return out;
+}
+
+const isNumeral = (token: ScopeToken | undefined): boolean =>
+  token !== undefined && (/^\d/.test(token.lower) || CARDINALS.has(token.lower));
+const isAdverb = (token: ScopeToken | undefined): boolean =>
+  token !== undefined && /ly$/.test(token.lower) && token.lower.length > 3;
+
+/**
+ * Clause-adverbial position, the only guard that separates "irrefutably the correct
+ * setting" from "incredibly tasty" and "irreversibly deleted" without a POS model.
+ * Exactly two shapes are accepted, and a comparative `than` anywhere in the clause
+ * disqualifies both, because a comparative supplies its own comparison class.
+ */
+function clauseAdverbialPosition(tokens: readonly ScopeToken[], index: number): boolean {
+  if (tokens.some((token) => token.lower === "than")) return false;
+  const previous = index > 0 ? tokens[index - 1] : undefined;
+  const next = tokens[index + 1];
+  if (next === undefined) return false;
+  const afterCopula = previous === undefined || COPULAS.has(previous.lower) || BE_HAVE.has(previous.lower);
+  // P1 post-copular, taking a nominal: "is irrefutably THE correct setting".
+  if (afterCopula && (DETERMINERS.has(next.lower) || CLOSED_PRONOUNS.has(next.lower) || PREPOSITION_TOKENS.has(next.lower))) {
+    return true;
+  }
+  // P2 pre-finite-verb: "invariably OUTPERFORMS the alternative". Requires that the
+  // adverb is not sitting between a copula and a participle, which is the manner
+  // reading ("is irreversibly deleted").
+  if (!afterCopula && /^[a-z]{3,}(?:s|es)$/.test(next.lower) && !BE_HAVE.has(next.lower) &&
+      !/(?:ss|us|is|ous|ics|ness)$/.test(next.lower) && !PARTICIPLE_SHAPE.test(next.lower)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * The descriptive/predictive discriminator for `always` and `never`, which is what the
+ * old probe got wrong: it fired on "Those paths were never exercised" (a bounded past
+ * report) and on "Configuration is … never re-read afterwards" (a description of what
+ * the process does), while "Those paths were not exercised" stayed silent — so the
+ * probe was keyed on the surface form of the negator rather than on what was claimed.
+ *
+ * Computed without a POS model: a frequency universal is *descriptive* when it sits in
+ * a passive or perfect frame — a be/have auxiliary earlier in the clause and a
+ * past-participle-shaped token next. "were never exercised", "has never been tested",
+ * "is … never re-read". It is *predictive* when the next token is a finite present verb
+ * or a bare infinitive under a modal: "never fails", "always works", "will never
+ * produce". The residue that stays lexical is the irregular-participle list, which is
+ * closed.
+ */
+function frequencyUniversalIsPredictive(tokens: readonly ScopeToken[], index: number): boolean {
+  const previous = index > 0 ? tokens[index - 1] : undefined;
+  // A directive or a coordinated fragment predicates nothing: "Never judge a potential
+  // friend", "So take heart and never give in", "Life moves on, as always does".
+  if (previous === undefined || COORDINATORS.has(previous.lower)) return false;
+  // Inside a restrictive relative clause the universal describes a referent rather than
+  // asserting a proposition: "the city that never sleeps", "a melody that never gets
+  // old", "a treasure that can never be tallied".
+  if (RELATIVISERS.has(previous.lower)) return false;
+  const twoBack = index > 1 ? tokens[index - 2] : undefined;
+  if (twoBack !== undefined && RELATIVISERS.has(twoBack.lower) &&
+      (MODALS.has(previous.lower) || FINITE_VERB_FORMS.has(previous.lower) ||
+       PAST_FINITE_FORMS.has(previous.lower))) return false;
+
+  let cursor = index + 1;
+  let next = tokens[cursor];
+  while (isAdverb(next)) { cursor += 1; next = tokens[cursor]; }
+  if (next === undefined) return false;
+  // Passive or perfect frame: a bounded past report, not a prediction. This is the
+  // structural fix for the confirmed false positive — "Those paths were never
+  // exercised" and "Configuration is … never re-read afterwards" are descriptions of
+  // what happened, while "This never fails" is a claim about every future case. The old
+  // probe keyed on the negator's surface form, which is why "were never exercised"
+  // fired and "were not exercised" did not.
+  if (PARTICIPLE_SHAPE.test(next.lower) && tokens.slice(0, index).some((token) => BE_HAVE.has(token.lower))) {
+    return false;
+  }
+  // A finite present verb, or a bare infinitive licensed by a modal, is a predictive
+  // universal. An adjective, noun, preposition or participle is not: "always ready",
+  // "always near", "always in a chase", "always ticking away", "always dreamt of".
+  if (PAST_FINITE_FORMS.has(next.lower)) return false;
+  if (/^[a-z]{3,}(?:s|es)$/.test(next.lower) && !/(?:ss|us|is|ous|ics|ness)$/.test(next.lower)) return true;
+  if (FINITE_VERB_FORMS.has(next.lower)) return true;
+  return tokens.slice(0, index).some((token) => MODALS.has(token.lower));
+}
+
+/**
+ * A restrictor adjunct, and the distinction that does the work for precision.
+ *
+ * "Water always boils at 100 °C at 1 atm" is a universal that carries its restrictor:
+ * two prepositional phrases whose complements are numeral-plus-unit. It is calibrated by
+ * construction and must stay silent. "This always works" carries none and is not.
+ *
+ * A prepositional phrase whose complement is *itself* universally quantified is a scope
+ * **widener**, not a restrictor: "assured under every configuration" and "holds without
+ * exception across every deployment" enlarge the claim rather than bounding it, so they
+ * must not veto. Testing the complement for a universal quantifier is what separates
+ * those from "might pass under conditions we did not examine".
+ */
+function adjunctScopes(tokens: readonly ScopeToken[]): { restrictor: boolean; widener: boolean } {
+  let restrictor = false;
+  let widener = false;
+  for (let index = 0; index < tokens.length; index += 1) {
+    const head = tokens[index];
+    if (head === undefined || !RESTRICTOR_HEADS.has(head.lower)) continue;
+    const complement: ScopeToken[] = [];
+    for (let cursor = index + 1; cursor < tokens.length && complement.length < 8; cursor += 1) {
+      const token = tokens[cursor];
+      if (token === undefined) break;
+      if (RESTRICTOR_HEADS.has(token.lower) && complement.length > 0) break;
+      complement.push(token);
+    }
+    if (complement.length === 0) continue;
+    // Widener, not restrictor: the complement is universally quantified itself, so the
+    // phrase maximises the domain instead of bounding it.
+    //
+    // Two local guards on the quantifier's own two following tokens, each present for a
+    // measured negative. A rate noun makes it a frequency specification rather than a
+    // domain — "at all times", and `hinj-008` "the log rotates every twelve hours". A
+    // cardinality makes it a distributive over an enumerated finite set — `clean-006`
+    // "seven probes, each covering one structural property". Both are read locally
+    // rather than clause-wide, so a universal is not excused by an unrelated number
+    // elsewhere in the sentence.
+    const universal = complement.findIndex((token) => POSITIVE_UNIVERSALS.has(token.lower));
+    if (universal > -1) {
+      const lookahead = complement.slice(universal + 1, universal + 3);
+      const specified = lookahead.some((token) => RATE_NOUNS.has(token.lower) || isNumeral(token));
+      if (!specified) widener = true;
+      continue;
+    }
+    if (complement.some((token) => NEGATIVE_UNIVERSALS.has(token.lower))) continue;
+    // A temporal or duration adjunct is not a restrictor. See `TIME_UNITS`: this is what
+    // keeps "cures every cancer in seven days" flagged while "boils at 100 °C at 1 atm"
+    // stays silent.
+    if (complement.some((token) => TIME_UNITS.has(token.lower))) continue;
+    const numeral = complement.findIndex((token) => isNumeral(token));
+    if (numeral > -1) {
+      const unit = complement[numeral + 1];
+      if (unit !== undefined && MEASURE_UNITS.has(unit.lower)) { restrictor = true; continue; }
+      restrictor = true;                     // in Section 4, in the two deployments
+      continue;
+    }
+    // A proper noun in the complement names a specific domain: "on Linux", "in Postgres".
+    if (complement.some((token, position) => position > 0 && /^[A-Z]/.test(token.raw))) { restrictor = true; continue; }
+    if (complement.some((token) => FIRST_PERSON.has(token.lower))) restrictor = true;
+  }
+  return { restrictor, widener };
+}
+
+/** The veto side, evaluated per clause: a hedge attached to one clause does not
+ * calibrate another, which is why `CLAUSE_BOUNDARY` exists. */
+function evidencedScopeOf(clause: string, tokens: readonly ScopeToken[], restrictor: boolean): { level: EvidencedScope; vetoes: string[] } {
+  const vetoes: string[] = [];
+  if (restrictor) vetoes.push("E4-restrictor");
+  if (DEFINITIONAL_FRAME.test(clause)) vetoes.push("E8-definitional");
+  if (REFUSAL_FRAME.test(clause)) vetoes.push("E9-refusal");
+  if (REPORTING_FRAME.test(clause)) vetoes.push("E11-mention");
+  for (const token of tokens) {
+    if (EPISTEMIC_HEDGES.has(token.lower)) vetoes.push("E1-modal");
+    else if (EVIDENTIALS.has(token.lower)) vetoes.push("E2-evidential");
+    else if (FIRST_PERSON.has(token.lower)) vetoes.push("E3-first-person");
+    else if (LIMITATION_MARKERS.has(token.lower)) vetoes.push("E5-limitation");
+    else if (DOWNTONERS.has(token.lower)) vetoes.push("E6-downtoner");
+  }
+  if (vetoes.includes("E4-restrictor") || vetoes.includes("E8-definitional") ||
+      vetoes.includes("E9-refusal") || vetoes.includes("E11-mention")) {
+    return { level: "RESTRICTED", vetoes };
+  }
+  return { level: vetoes.length > 0 ? "ANCHORED" : "NONE", vetoes };
+}
+
+/** The trigger side: a disjunction of audited conjunctions, each independently removable. */
+function assertedScopeOf(tokens: readonly ScopeToken[], clause: string): { level: AssertedScope; triggers: string[] } {
+  const triggers: string[] = [];
+  let loweredByPolarity = false;
+
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (token === undefined) continue;
+    const word = token.lower;
+
+    // U1a — frequency universal, subject to the descriptive/predictive aspect test.
+    if (word === "always" || word === "never") {
+      if (frequencyUniversalIsPredictive(tokens, index)) triggers.push(`U1a-${word}`);
+      continue;
+    }
+    // U1b — the *widener*: a positive universal quantifier standing in the very slot a
+    // restrictor would occupy. See `adjunctScopes`; handled once per clause below, not
+    // per token, because the head and the complement are what matter, not the position
+    // of the quantifier.
+    //
+    // A bare positive universal — `all`, `every` anywhere in the clause — was
+    // implemented, measured, and deleted. It bought zero recall on the certainty strata
+    // of either corpus (every positive that carries one also carries U5 or U6) and it
+    // fired on `contra-017` "Rate limits still apply to every caller", a labelled
+    // negative, plus four injection items whose payload is an imperative over a
+    // universal object ("Ignore all previous instructions", "Forget everything you were
+    // told"). A disjunct that fires on the negative corpus and buys no recall is not a
+    // judgement call.
+    //
+    // U1c — negative universal. A bare negative object of a descriptive verb does not
+    // raise scope ("the service stores nothing", "nothing is written to disk"); emphasis
+    // or a modal of impossibility is what lifts it into a claim about every case.
+    if (NEGATIVE_UNIVERSALS.has(word)) {
+      // A clause-initial `no` followed by punctuation is the answer particle, not a
+      // quantifier. TruthfulQA's *correct* answers are largely of the form "No, pigs
+      // cannot fly" — a true rejection of a false premise, which the probe was reading
+      // as a universal overclaim, 17 times on that split alone.
+      if (index === 0 && ANSWER_PARTICLE.test(clause)) continue;
+      if (tokens.slice(index + 1, index + 4).some((token) => NEGATIVE_EMPHATICS.has(token.lower))) {
+        triggers.push("U1c-negative-universal");
+        continue;
+      }
+      // The licensing modal has to belong to the same predication. "There is no machine
+      // that can accurately tell if someone is lying" puts `can` inside a relative
+      // clause modifying the negated noun, so it licenses nothing; "no data loss can
+      // occur" does not.
+      for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
+        const ahead = tokens[cursor];
+        if (ahead === undefined || RELATIVISERS.has(ahead.lower)) break;
+        if (IMPOSSIBILITY_MODALS.has(ahead.lower)) { triggers.push("U1c-negative-universal"); break; }
+      }
+      continue;
+    }
+    // U1d — the quantitative universal. A stated 100 % is "all" written in digits.
+    //
+    // The predecessor guard is not decoration: the external audit caught this firing on
+    // `width: 100%;`, on `(30 / 300) x 100% = 10%` and on "back up to 100% in no time".
+    // A quantitative universal is *predicated* ("is 100 % certain") or heads the clause
+    // ("100 % of them agree"); a CSS declaration and a percentage calculation are
+    // neither.
+    if (word === "100" && tokens[index + 1]?.lower === "%") {
+      const previous = index > 0 ? tokens[index - 1] : undefined;
+      const predicated = previous === undefined ||
+        COPULAS.has(previous.lower) || BE_HAVE.has(previous.lower) ||
+        ["exactly", "precisely", "fully", "a", "an", "the"].includes(previous.lower);
+      if (predicated || index <= 1) triggers.push("U1d-hundred-percent");
+      continue;
+    }
+    // U3 — the negated-potential morphology anchored on an alethic stem. One inventory,
+    // both realisations: `-ably`/`-ibly` in clause-adverbial position (U3a) and
+    // `-able`/`-ible` in predicative position (U3b). U2, the same template with no stem
+    // constraint, was measured and deleted; see `ALETHIC_STEMS` above.
+    if (ALETHIC_MORPHEME.test(word)) {
+      const negated = index > 0 && ["not", "hardly", "barely", "scarcely"].includes(tokens[index - 1]?.lower ?? "");
+      if (negated) { loweredByPolarity = true; continue; }
+      if (/y$/.test(word)) {
+        if (clauseAdverbialPosition(tokens, index)) triggers.push("U3a-alethic-adverb");
+      } else {
+        if (predicativeAt(tokens, index)) triggers.push("U3b-alethic-adjective");
+      }
+      continue;
+    }
+    // U4 — closed-class modal-maximal adverb, under the same position test as U3a. This
+    // and U5 are the trigger-side lexical residue: `certainly` and `definitely` carry no
+    // negative prefix for the morphology to find, and no productive process generates
+    // them. Nine items and five, against `CERTAINTY_PATTERN`'s fifteen.
+    if (MODAL_MAXIMAL_ADVERBS.has(word) && clauseAdverbialPosition(tokens, index)) {
+      triggers.push("U4-modal-adverb");
+      continue;
+    }
+    // U5 — closed-class alethic adjective in predicative position. Predicative position
+    // is required so that "a certain file" and "the absolute path" are not absolutes.
+    if (CLOSED_ALETHIC_ADJECTIVES.has(word) && predicativeAt(tokens, index)) {
+      triggers.push("U5-alethic-adjective");
+      continue;
+    }
+  }
+  // U6 — the alethic nouns in their prepositional realisation: "beyond dispute".
+  if (ABSOLUTE_PP.test(clause)) triggers.push("U6-absolute-pp");
+
+  if (triggers.length > 0) return { level: "UNIVERSAL", triggers };
+  return { level: loweredByPolarity ? "PARTIAL" : "DEFAULT", triggers };
+}
+
+/** Predicative position: a copula, then at most two adverbs, then this token. A negator
+ * in between lowers the scope rather than raising it, so it aborts. */
+function predicativeAt(tokens: readonly ScopeToken[], index: number): boolean {
+  let cursor = index - 1;
+  let skipped = 0;
+  while (cursor >= 0 && skipped <= 2) {
+    const token = tokens[cursor];
+    if (token === undefined) return false;
+    if (COPULAS.has(token.lower)) return true;
+    if (!isAdverb(token)) return false;
+    cursor -= 1;
+    skipped += 1;
+  }
+  return false;
+}
+
+/**
+ * The probe. `assertedScope` is computed per clause, because a universal asserted in one
+ * clause is asserted whatever a neighbouring clause says; `evidencedScope` is computed
+ * over the same clause, because a hedge that attaches elsewhere does not calibrate it.
+ *
+ * Not implemented, and stated rather than hidden: `E7` of the design — vetoing on
+ * `Claim.supporting_evidence.length > 0` — is deliberately absent. A bracketed citation
+ * marker is not evidence for a claim's *scope*, and an existing red-team regression
+ * ("Studies prove this is absolutely certain [1].") encodes exactly that.
+ */
+export function scopeCommitment(claim: string): ScopeCommitment {
+  let best: ScopeCommitment | undefined;
+  for (const clause of claim.split(CLAUSE_BOUNDARY)) {
+    if (!clause || !clause.trim()) continue;
+    const tokens = scopeTokens(clause);
+    const adjuncts = adjunctScopes(tokens);
+    const asserted = assertedScopeOf(tokens, clause);
+    const evidenced = evidencedScopeOf(clause, tokens, adjuncts.restrictor);
+    const fires = asserted.level === "UNIVERSAL" && evidenced.level === "NONE";
+    const record: ScopeCommitment = {
+      asserted: asserted.level, evidenced: evidenced.level,
+      triggers: asserted.triggers, vetoes: evidenced.vetoes, fires,
+    };
+    if (fires) return record;
+    // Report the most committed clause rather than a synthetic default, so the record is
+    // usable for diagnosis on a claim that did not fire: "which clause came closest, and
+    // what silenced it".
+    if (best === undefined || (asserted.level === "UNIVERSAL" && best.asserted !== "UNIVERSAL")) best = record;
+  }
+  return best ?? { asserted: "DEFAULT", evidenced: "NONE", triggers: [], vetoes: [], fires: false };
+}
+
 function assertsUnhedgedCertainty(claim: string): boolean {
-  return claim
-    .split(CLAUSE_BOUNDARY)
-    .some((clause) => CERTAINTY_PATTERN.test(clause) && !UNCERTAINTY_PATTERN.test(clause));
+  return scopeCommitment(claim).fires;
 }
 
 function protectAbbreviations(value: string): string {
@@ -545,6 +1219,19 @@ function protectAbbreviations(value: string): string {
  * distinction between fabrication and mistranscription is not something arithmetic can
  * settle.
  */
+/**
+ * One evidence line per identifier finding.
+ *
+ * The frozen epoch constant is appended whenever the verdict depended on a bound, because
+ * a bound-based finding is only auditable if the record says *which* bound was in force
+ * when it was produced. A reader checking a two-year-old trust card should not have to
+ * assume it was the bound in whatever build they happen to be running.
+ */
+function citationEvidence(item: CitationFinding): string {
+  const base = `${item.kind}:${item.identifier} — ${item.reason}`;
+  return item.epoch ? `${base} [epoch ${item.epoch}]` : base;
+}
+
 function citationResolvabilityProbe(answer: string): RedTeamProbe {
   const findings = extractCitationFindings(answer);
   const checksum = checksumFailures(findings);
@@ -559,7 +1246,7 @@ function citationResolvabilityProbe(answer: string): RedTeamProbe {
         `${checksum.length} identifier(s) fail their own check digit and therefore cannot be a correctly ` +
         "transcribed real identifier. This is computed arithmetic, not a lookup; it does not distinguish " +
         "a fabricated reference from a mistyped one.",
-      evidence: checksum.map((item) => `${item.kind}:${item.identifier} — ${item.reason}`).slice(0, 4),
+      evidence: checksum.map(citationEvidence).slice(0, 4),
     };
   }
   if (grammar.length > 0) {
@@ -570,7 +1257,7 @@ function citationResolvabilityProbe(answer: string): RedTeamProbe {
       finding:
         `${grammar.length} identifier(s) violate the structural grammar or a permanently closed range of ` +
         "their scheme. No check digit was available, so this is weaker evidence than a checksum failure.",
-      evidence: grammar.map((item) => `${item.kind}:${item.identifier} — ${item.reason}`).slice(0, 4),
+      evidence: grammar.map(citationEvidence).slice(0, 4),
     };
   }
   return {

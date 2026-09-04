@@ -29,11 +29,10 @@
 import crypto from "node:crypto";
 
 import {
-  PROMPT_INJECTION_PATTERN,
   credentialText,
   dangerousActionSignals,
+  injectionFindings,
   secretSignals,
-  securityText,
 } from "./signals.js";
 import type { RedTeamProbe, ToolDeclaration, ToolInvocation, ToolPin } from "./types.js";
 
@@ -49,18 +48,44 @@ const MAX_ARGUMENT_DEPTH = 12;
  * Sorting is by UTF-8 byte order rather than JavaScript's default UTF-16 code-unit order,
  * because those two disagree above the BMP and a hash that depends on which language
  * produced it is not a hash anyone can verify.
+ *
+ * **Scalars are type-tagged, and this is load-bearing.** Non-integer numbers cannot be
+ * emitted as bare JSON numbers, because JS and Python disagree on the shortest round-trip
+ * form ("1.0" vs "1") and a digest that depends on which language produced it is not a
+ * digest anyone can verify. The previous fix for that rendered a non-integer as
+ * `JSON.stringify(String(v))` — which made `{maximum: 1.5}` and `{maximum: "1.5"}`
+ * serialize to the *same* bytes and therefore hash identically. In this module's threat
+ * model the attacker controls the republished schema, so a rug pull that only retypes a
+ * constraint from number to string moved zero bits of the `declaration_hash` and was
+ * invisible to drift detection.
+ *
+ * So every scalar that is rendered as a JSON string carries a two-character tag from a
+ * disjoint alphabet — `s:` string, `n:` non-integer number, `b:` bigint — which makes the
+ * encoding injective on type: no string can be spelled so as to collide with a number,
+ * because a tagged string's tag is applied by *us* after the attacker's bytes are fixed.
+ * Integers, booleans and null stay bare, and no tagged form is bare, so those cannot
+ * collide either.
  */
+const TAG_STRING = "s:";
+const TAG_NONINTEGER = "n:";
+const TAG_BIGINT = "b:";
+
 export function stableStringify(value: unknown, depth = 0, seen: Set<object> = new Set()): string {
   if (depth > MAX_ARGUMENT_DEPTH) return '"[depth-exceeded]"';
   if (value === null) return "null";
   if (value === undefined) return "null";
   if (typeof value === "number") {
-    // Non-integers are not serialized as numbers: JS and Python disagree on the shortest
-    // round-trip form ("1" vs "1.0"), which would make the hash language-dependent.
-    return Number.isInteger(value) ? String(value) : JSON.stringify(String(value));
+    // Negative zero is distinguished from zero: `String(-0)` is "0", so without this a
+    // retype from 0 to -0 would also be a silent collision. NaN and ±Infinity fall
+    // through the non-integer branch and render as themselves, deterministically.
+    if (Object.is(value, -0)) return "-0";
+    return Number.isInteger(value) ? String(value) : JSON.stringify(TAG_NONINTEGER + String(value));
   }
   if (typeof value === "boolean") return String(value);
-  if (typeof value === "string") return JSON.stringify(value);
+  if (typeof value === "string") return JSON.stringify(TAG_STRING + value);
+  // A bigint is not JSON-representable and previously fell through to "null", which
+  // silently erased a value rather than recording one.
+  if (typeof value === "bigint") return JSON.stringify(TAG_BIGINT + value.toString());
   if (typeof value !== "object") return "null";
 
   // A cycle is caught here rather than by the depth cap alone. The cap does terminate,
@@ -121,16 +146,27 @@ export interface DeclarationDigest {
   schema: string;
 }
 
+/**
+ * The digest algorithm's version, carried in every pin this build issues.
+ *
+ * Type-tagging the scalars in `stableStringify` changed the bytes that get hashed, so
+ * every pin issued before that change names a *different function* than the one running
+ * now. A hash mismatch against such a pin is not evidence of drift — it is evidence that
+ * the pin is unreadable — and reporting it as drift would train a caller to dismiss the
+ * one finding this module exists to raise. Pins are therefore versioned, and a pin from a
+ * superseded version is handled explicitly rather than silently compared.
+ */
+export const PIN_VERSION = "gbx-pin-2";
+
 export function declarationDigest(declaration: ToolDeclaration): DeclarationDigest {
   const name = componentHash(declaration.name);
   const description = componentHash(declaration.description ?? null);
   const schema = componentHash(declaration.input_schema ?? null);
-  return {
-    combined: crypto.createHash("sha256").update(`${name}:${description}:${schema}`).digest("hex"),
-    name,
-    description,
-    schema,
-  };
+  return { combined: combineComponents(name, description, schema), name, description, schema };
+}
+
+function combineComponents(name: string, description: string, schema: string): string {
+  return crypto.createHash("sha256").update(`${name}:${description}:${schema}`).digest("hex");
 }
 
 /** Pin a declaration at approval time. The caller stores this and presents it later. */
@@ -138,6 +174,7 @@ export function pinDeclaration(declaration: ToolDeclaration): ToolPin {
   const digest = declarationDigest(declaration);
   return {
     tool: declaration.name,
+    pin_version: PIN_VERSION,
     declaration_hash: digest.combined,
     component_hashes: { name: digest.name, description: digest.description, schema: digest.schema },
   };
@@ -148,22 +185,65 @@ export interface DriftFinding {
   components: DeclarationComponent[];
   /** True when the description moved but the schema did not — the rug-pull shape. */
   descriptionOnly: boolean;
+  /**
+   * True when the pin's own component hashes do not combine to its own
+   * `declaration_hash`. Nothing about the declaration can be concluded from such a pin.
+   */
+  inconsistentPin: boolean;
+  /** True when the pin names a digest version this build does not compute. */
+  staleVersion: boolean;
 }
 
+/**
+ * Compare a presented declaration against its pin.
+ *
+ * Two properties of the *pin* are checked before anything is concluded about the
+ * *declaration*, because the pin is caller-supplied state and this function's output
+ * drives a severity.
+ *
+ * **Version.** A pin from a superseded digest version is not comparable at all.
+ *
+ * **Internal consistency.** `component_hashes` must combine to `declaration_hash` under
+ * the same construction `declarationDigest` uses. Checking `combined` first and then
+ * trusting the components unconditionally — as this did — let a caller present a pin whose
+ * `combined` came from the approved declaration but whose `component_hashes.description`
+ * had been replaced with the hash of the *attacker's* description. Drift was still
+ * detected, but attribution then read "schema changed" instead of "description changed
+ * while the schema stayed identical", and the rug pull was reported as an ordinary version
+ * bump: critical downgraded to high, by supplying a self-contradictory pin. An inconsistent
+ * pin is now its own critical finding and no attribution is offered from it.
+ */
 export function detectDrift(declaration: ToolDeclaration, pin: ToolPin): DriftFinding {
-  const digest = declarationDigest(declaration);
-  if (digest.combined === pin.declaration_hash) {
-    return { drifted: false, components: [], descriptionOnly: false };
-  }
+  const base: DriftFinding = {
+    drifted: false, components: [], descriptionOnly: false, inconsistentPin: false, staleVersion: false,
+  };
+
   const pinned = pin.component_hashes;
+
+  // A pin with components must be self-consistent, whether or not `combined` matches.
+  // Checked before the combined comparison so a tampered pin cannot buy a clean pass.
+  if (pinned && combineComponents(pinned.name, pinned.description, pinned.schema) !== pin.declaration_hash) {
+    return { ...base, drifted: true, inconsistentPin: true };
+  }
+
+  // An unversioned or foreign-versioned pin was produced by a different digest function.
+  // Fail closed, but as "unreadable pin", never as "the tool drifted".
+  if (pin.pin_version !== PIN_VERSION) {
+    return { ...base, drifted: true, staleVersion: true };
+  }
+
+  const digest = declarationDigest(declaration);
+  if (digest.combined === pin.declaration_hash) return base;
+
   // Without component hashes the pin can only prove *that* something moved.
-  if (!pinned) return { drifted: true, components: [], descriptionOnly: false };
+  if (!pinned) return { ...base, drifted: true };
 
   const components: DeclarationComponent[] = [];
   if (digest.name !== pinned.name) components.push("name");
   if (digest.description !== pinned.description) components.push("description");
   if (digest.schema !== pinned.schema) components.push("schema");
   return {
+    ...base,
     drifted: true,
     components,
     descriptionOnly: components.length === 1 && components[0] === "description",
@@ -226,16 +306,31 @@ export function toolCallProbes(
     probes.push(probe(
       "tool_declaration_drift",
       !drift.drifted,
-      drift.descriptionOnly ? "critical" : "high",
+      // An inconsistent pin is critical in its own right: the pin is the trust anchor, and
+      // a self-contradictory one is either tampering or corruption. A stale-version pin is
+      // an operational fact, so it fails closed at "high" without alleging an attack.
+      drift.inconsistentPin || drift.descriptionOnly ? "critical" : "high",
       !drift.drifted
         ? `Tool ${invocation.tool} matches its pinned declaration.`
-        : drift.descriptionOnly
-          ? `Tool ${invocation.tool} changed its description while its schema stayed identical. ` +
-            "That is the shape of a tool-definition swap: the description is what the calling agent reads."
-          : drift.components.length > 0
-            ? `Tool ${invocation.tool} no longer matches its pinned declaration (${drift.components.join(", ")} changed).`
-            : `Tool ${invocation.tool} no longer matches its pinned declaration.`,
-      drift.components,
+        : drift.inconsistentPin
+          ? `The pin presented for ${invocation.tool} is internally inconsistent: its component hashes do not ` +
+            "combine to its own declaration hash. Nothing can be concluded about the declaration from it, and a " +
+            "pin that contradicts itself is how drift attribution gets downgraded. Re-pin from a trusted declaration."
+          : drift.staleVersion
+            ? `The pin presented for ${invocation.tool} names digest version ` +
+              `${pin.pin_version ?? "(none)"}, but this build computes ${PIN_VERSION}. The two hash different bytes, ` +
+              "so the comparison was not performed. This is an unreadable pin, not detected drift: re-pin to compare."
+            : drift.descriptionOnly
+              ? `Tool ${invocation.tool} changed its description while its schema stayed identical. ` +
+                "That is the shape of a tool-definition swap: the description is what the calling agent reads."
+              : drift.components.length > 0
+                ? `Tool ${invocation.tool} no longer matches its pinned declaration (${drift.components.join(", ")} changed).`
+                : `Tool ${invocation.tool} no longer matches its pinned declaration.`,
+      drift.inconsistentPin
+        ? ["pin_inconsistent"]
+        : drift.staleVersion
+          ? [`pin_version:${pin.pin_version ?? "unversioned"}`]
+          : drift.components,
     ));
   } else if (pin && !invocation.declaration) {
     probes.push(probe(
@@ -249,28 +344,31 @@ export function toolCallProbes(
   // --- the tool's own description is untrusted input ------------------------
   const description = invocation.declaration?.description;
   if (description) {
-    const hostile = PROMPT_INJECTION_PATTERN.test(securityText(description));
+    const hostileStructures = injectionFindings(description);
+    const hostile = hostileStructures.length > 0;
     probes.push(probe(
       "tool_description_injection",
       !hostile,
       "critical",
       hostile
-        ? `The declared description of ${invocation.tool} contains instruction-override or secret-extraction language. ` +
+        ? `The declared description of ${invocation.tool} carries an instruction-override or ` +
+          `secret-extraction structure (${hostileStructures.join("; ")}). ` +
           "A tool description is data supplied by whoever published the tool, not instructions to follow."
-        : "No instruction-override language was detected in the tool description.",
+        : "No instruction-override structure was detected in the tool description.",
       hostile ? ["Instruction-like content detected in the tool description; raw text withheld."] : [],
     ));
   }
 
   // --- arguments, through the same primitives as an answer ------------------
-  const injected = PROMPT_INJECTION_PATTERN.test(securityText(payload));
+  const injectedStructures = injectionFindings(payload);
+  const injected = injectedStructures.length > 0;
   probes.push(probe(
     "tool_argument_injection",
     !injected,
     "high",
     injected
-      ? "Tool-call arguments contain instruction-override or secret-extraction language."
-      : "No instruction-override pattern was detected in the tool-call arguments.",
+      ? `Tool-call arguments carry an instruction-override or secret-extraction structure (${injectedStructures.join("; ")}).`
+      : "No instruction-override structure was detected in the tool-call arguments.",
     injected ? ["Instruction-like content detected in arguments; raw values withheld."] : [],
   ));
 

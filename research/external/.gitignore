@@ -1,0 +1,7 @@
+# Raw third-party downloads and the sampled files derived from them. Both regenerate
+# byte-identically from `prepare.py`, which pins each source to an immutable commit and
+# verifies its SHA-256, so committing ~22 MB of someone else's corpus buys nothing.
+# `data/MANIFEST.json` is kept: it is the record of exactly which bytes were used.
+cache/
+data/*.jsonl
+!data/MANIFEST.json

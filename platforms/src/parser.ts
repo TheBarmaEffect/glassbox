@@ -129,6 +129,12 @@ function normalizeToolPins(value: VerificationInput["tool_pins"]): VerificationI
       tool: clean(pin.tool, MAX_TOOL_NAME_CHARS, "Tool pin name"),
       declaration_hash: pin.declaration_hash,
       ...(components ? { component_hashes: components } : {}),
+      // Carried through rather than dropped: a pin whose version is silently discarded
+      // becomes indistinguishable from a pre-versioning pin, which is the one case the
+      // drift check has to handle differently.
+      ...(pin.pin_version !== undefined
+        ? { pin_version: clean(String(pin.pin_version), 32, "Tool pin version") }
+        : {}),
       ...(pin.pinned_at ? { pinned_at: clean(String(pin.pinned_at), 64, "Tool pin timestamp") } : {}),
     };
   });

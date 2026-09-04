@@ -32,13 +32,20 @@ export interface ToolDeclaration {
 }
 
 /**
- * A pinned declaration, produced at approval time. Component hashes are optional so an
- * older pin still verifies, but without them drift can only be detected, not attributed.
+ * A pinned declaration, produced at approval time. Component hashes are optional so a pin
+ * that carries only the combined digest still detects drift, though without them drift
+ * cannot be attributed to a component.
+ *
+ * `pin_version` names the digest algorithm that produced the hashes. It is absent on pins
+ * issued before the algorithm was versioned, and those are refused explicitly rather than
+ * compared against bytes they were never computed over.
  */
 export interface ToolPin {
   tool: string;
   declaration_hash: string;
   component_hashes?: { name: string; description: string; schema: string };
+  /** Digest algorithm version, e.g. "gbx-pin-2". Absent means a pre-versioning pin. */
+  pin_version?: string;
   pinned_at?: string;
 }
 

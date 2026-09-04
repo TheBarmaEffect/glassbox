@@ -1,0 +1,10 @@
+{
+  "dataset": "gbsa1_heldout",
+  "items": 75,
+  "repeats": 1,
+  "identical": true,
+  "digests": [
+    "0c954d23f09bbecd3371ab000aa8c8e46bc87675edc4bbf3385d6d0243837610"
+  ],
+  "ms_per_item_per_pass": 0.08
+}

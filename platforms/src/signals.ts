@@ -46,60 +46,24 @@ export const DANGEROUS_ACTION_PATTERNS: Array<[string, RegExp]> = [
 ];
 
 /**
- * Instruction-override and persona-override forms, one alternation branch per form.
+ * Instruction-override detection now lives in `injection.ts` and is re-exported here.
  *
- * There is no property of a string that can be computed to decide "this is an injection",
- * so this detector is unavoidably a pattern set. What can be made structural is *where* a
- * phrase has to sit: every branch below requires the phrase to occupy the grammatical role
- * of a command or an assignment, not merely to appear. That distinction is what separates
- * an attack from prose discussing one, and it is where precision comes from here.
+ * What stood in this place was `PROMPT_INJECTION_PATTERN`, a single alternation of
+ * phrase templates, and the comment above it said plainly that "there is no property of a
+ * string that can be computed to decide 'this is an injection'". Three measurements
+ * disagreed with that. `research/benchmark/RESULTS.md` put its held-out recall at 0.000;
+ * `research/comparison/COMPARISON_RESULTS.md` showed a forty-term word list beating it at
+ * 0.250 blind and 0.500 informed; and `research/benchmark/GBSA2_RESULTS.md` defect 5
+ * isolated the mechanism — one unknown token inserted between the verb and the noun broke
+ * the match outright, so coverage was not even monotonic in vocabulary size.
+ *
+ * There *are* properties to compute. An override is a nullifying predicate taking a scope
+ * reference as its object, uttered in the imperative — and imperative mood, token distance
+ * between a predicate and its object, encoding anomaly and role-marker alternation are all
+ * computed rather than matched. `injection.ts` computes them; this module keeps exporting
+ * the entry point so the tool-invocation probes and the answer probes cannot drift apart.
  */
-export const PROMPT_INJECTION_PATTERN = new RegExp(
-  [
-    // "ignore/disregard/forget ... previous ... instructions"
-    "\\b(?:ignore|disregard|forget)\\b.{0,40}\\b(?:previous|prior|above|system|developer)\\b.{0,25}\\b(?:instruction|message|prompt)s?\\b",
-    // exfiltration of the system context
-    "\\b(?:reveal|print|repeat|expose|leak)\\b.{0,40}\\b(?:system prompt|developer message|secret|credential|api key|token)\\b",
-    "\\b(?:jailbreak|do anything now)\\b",
-    // A privileged mode must be *switched into* to count. Matching the bare noun phrase
-    // flagged "Developer mode in Chrome lets you inspect elements." as an attack, which is
-    // a description of a browser feature; requiring an activating verb or a copular
-    // assignment keeps "enter developer mode" and "you are now in developer mode" while
-    // leaving every mention of the term alone.
-    "\\b(?:enable|activate|enter|switch to|turn on|you are (?:now )?in)\\s+(?:developer|god|unrestricted|debug)\\s+mode\\b",
-    // Persona overrides: the answer is told what it now is, or told that its limits are
-    // lifted and that it must therefore comply.
-    "\\byou are now\\b.{0,40}\\b(?:DAN|unrestricted|unfiltered|uncensored|no longer bound|not bound by)\\b",
-    "\\b(?:no|without)\\s+(?:restrictions|limitations|filters|guardrails|safety)\\b.{0,30}\\b(?:must|will|should)\\s+comply\\b",
-    "\\bact as (?:if you are )?(?:an? )?(?:unrestricted|unfiltered|uncensored|jailbroken)\\b",
-    "\\bpretend (?:that )?you (?:have no|are not bound by)\\b",
-    // Role markers injected as content.
-    //
-    // Scope deliberately narrow, and narrowed back after measurement. Extending this to
-    // `[ASSISTANT]` and to a bare `SYSTEM:|ASSISTANT:|DEVELOPER:` prefix was argued for on
-    // the grounds that a structural marker generalises where a vocabulary does not. It
-    // does generalise — onto ordinary chat transcripts, which are written in exactly this
-    // notation. On HaluEval Dialogue (4,000 items, transcripts rendered as
-    // "[Human]: ... [Assistant]: ...") the two additions fired on 98.25% of items, and
-    // because `input_injection` is decisive they rejected almost the whole corpus.
-    //
-    // A transcript is one of the most natural inputs an output auditor receives, so this
-    // is a large common input class, not an exotic edge. Separating the two cases needs to
-    // decide whether the text after a role marker is an instruction or a turn of dialogue,
-    // and the only available discriminator is an imperative vocabulary — which is the
-    // thing GBSA-1 showed buys development score and no held-out capability. So the
-    // capability is withdrawn rather than patched: `[INST]` and `[SYSTEM]` are chat-template
-    // delimiters that do not occur in rendered dialogue, and the XML-style tags below are
-    // likewise not transcript notation.
-    "</?(?:system|assistant|developer)>",
-    "\\[(?:INST|SYSTEM)\\]",
-    "\\b(?:ignore|disregard|override|forget)\\s+(?:all\\s+|everything\\s+)?(?:the\\s+|your\\s+)?(?:above|previous|prior|earlier|preceding)\\b",
-    "\\bforget everything\\b",
-    "\\bnew instructions?\\s*:",
-    "\\b(?:ignore|disregard|override|bypass)\\b.{0,30}\\b(?:safety|guardrail|guideline|restriction|policy|rule)s?\\b",
-  ].join("|"),
-  "i",
-);
+export { injectionFindings, isInjection } from "./injection.js";
 
 export const INVISIBLE_CHARACTERS = /[\p{Cf}\u034F\uFE00-\uFE0F]|[\u{E0100}-\u{E01EF}]/gu;
 

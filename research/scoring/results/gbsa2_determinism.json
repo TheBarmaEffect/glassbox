@@ -1,0 +1,10 @@
+{
+  "dataset": "gbsa2",
+  "items": 126,
+  "repeats": 1,
+  "identical": true,
+  "digests": [
+    "5a2b910951f48af30b0a68b287d2515ae5a2c3768eb23ec6b326b9d27657cfb3"
+  ],
+  "ms_per_item_per_pass": 0.119
+}

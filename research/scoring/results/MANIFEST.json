@@ -1,0 +1,159 @@
+{
+  "srs_version": "srs-1",
+  "tiebreak_band_ppm": 3000,
+  "components": [
+    {
+      "key": "unsupported_specificity_density",
+      "refines": "unsupported_specificity",
+      "included": true,
+      "higher_is_riskier": true
+    },
+    {
+      "key": "evidence_deficit",
+      "refines": "claim_extraction",
+      "included": true,
+      "higher_is_riskier": true
+    },
+    {
+      "key": "assumed_claim_ratio",
+      "refines": "claim_extraction",
+      "included": true,
+      "higher_is_riskier": true
+    },
+    {
+      "key": "attack_surface_load",
+      "refines": "claim_extraction",
+      "included": true,
+      "higher_is_riskier": true
+    },
+    {
+      "key": "citation_marker_burden",
+      "refines": "citation_verifiability",
+      "included": true,
+      "higher_is_riskier": true
+    },
+    {
+      "key": "certainty_density",
+      "refines": "unsupported_certainty",
+      "included": true,
+      "higher_is_riskier": true
+    },
+    {
+      "key": "numeric_density",
+      "refines": "unsupported_specificity",
+      "included": true,
+      "higher_is_riskier": true
+    },
+    {
+      "key": "numeric_precision",
+      "refines": "unsupported_specificity",
+      "included": true,
+      "higher_is_riskier": true
+    },
+    {
+      "key": "entity_specificity_density",
+      "refines": "unsupported_specificity",
+      "included": true,
+      "higher_is_riskier": true
+    },
+    {
+      "key": "identifier_defect_ratio",
+      "refines": "citation_resolvability",
+      "included": true,
+      "higher_is_riskier": true
+    },
+    {
+      "key": "arithmetic_defect_ratio",
+      "refines": "arithmetic_sanity",
+      "included": true,
+      "higher_is_riskier": true
+    },
+    {
+      "key": "contradiction_pressure",
+      "refines": "internal_contradiction",
+      "included": true,
+      "higher_is_riskier": true
+    },
+    {
+      "key": "numeric_frame_collision",
+      "refines": "internal_contradiction",
+      "included": true,
+      "higher_is_riskier": true
+    },
+    {
+      "key": "question_coverage_deficit",
+      "refines": "answer_relevance",
+      "included": false,
+      "higher_is_riskier": true
+    },
+    {
+      "key": "claim_graph_density",
+      "refines": "internal_contradiction",
+      "included": false,
+      "higher_is_riskier": false
+    },
+    {
+      "key": "claim_count_norm",
+      "refines": "claim_extraction",
+      "included": false,
+      "higher_is_riskier": true
+    },
+    {
+      "key": "answer_token_norm",
+      "refines": "claim_extraction",
+      "included": false,
+      "higher_is_riskier": true
+    }
+  ],
+  "datasets": [
+    {
+      "name": "truthfulqa",
+      "label_kind": "external",
+      "items": 1580,
+      "deterministic": true,
+      "digest": "ccf15c233d30bf5928ade56f3c7a1a2164f8001fb9dd0134b56ac858b50770a9"
+    },
+    {
+      "name": "halueval_qa",
+      "label_kind": "external",
+      "items": 4000,
+      "deterministic": true,
+      "digest": "9a26d5a60aa584999b9ba62d241f9fad9ff0a752cc25b634e0ca950feeb481bd"
+    },
+    {
+      "name": "halueval_dialogue",
+      "label_kind": "external",
+      "items": 4000,
+      "deterministic": true,
+      "digest": "e4d588d8902d617849030cbd63dc4d3a856e223549202bceb9ec9f2917a600ef"
+    },
+    {
+      "name": "halueval_general",
+      "label_kind": "external",
+      "items": 5000,
+      "deterministic": true,
+      "digest": "3e635d0b826087f6b982e23bce03938d737c27d0f5c1172e0eb3417621326f65"
+    },
+    {
+      "name": "gbsa1_main",
+      "label_kind": "should_flag",
+      "items": 112,
+      "deterministic": true,
+      "digest": "c1946fb6b9db09791e28865643487b0271d8205ff02269749239e7c7f9a59295"
+    },
+    {
+      "name": "gbsa1_heldout",
+      "label_kind": "should_flag",
+      "items": 75,
+      "deterministic": true,
+      "digest": "0c954d23f09bbecd3371ab000aa8c8e46bc87675edc4bbf3385d6d0243837610"
+    },
+    {
+      "name": "gbsa2",
+      "label_kind": "should_flag",
+      "items": 126,
+      "deterministic": true,
+      "digest": "5a2b910951f48af30b0a68b287d2515ae5a2c3768eb23ec6b326b9d27657cfb3"
+    }
+  ]
+}

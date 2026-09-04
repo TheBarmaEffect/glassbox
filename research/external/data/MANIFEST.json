@@ -1,0 +1,53 @@
+{
+  "datasets": {
+    "halueval_dialogue": {
+      "clean": 2000,
+      "dropped_out_of_bounds": 0,
+      "hallucinated": 2000,
+      "items": 4000,
+      "output_sha256": "ddaba0b69c685cfb7153bb04448e30a38dcb254630f5e18a815815aef18a4a57",
+      "paired": true,
+      "pairs": 2000,
+      "raw_sha256": "9c461df2691e4362837f66fceaaff3bc260453350c3a1cae76a5a52e5e338bfd",
+      "source": "RUCAIBox/HaluEval @ 207f479c555a68b8d2431631a95083b84b2accbe (MIT)",
+      "url": "https://raw.githubusercontent.com/RUCAIBox/HaluEval/207f479c555a68b8d2431631a95083b84b2accbe/data/dialogue_data.json"
+    },
+    "halueval_general": {
+      "clean": 4023,
+      "dropped_out_of_bounds": 0,
+      "hallucinated": 977,
+      "items": 5000,
+      "output_sha256": "523cf6e23362784274cae67a5d26612c386fa168e9e5f0ff10efa82fca7bbf85",
+      "paired": false,
+      "pairs": 5000,
+      "raw_sha256": "06325213d8b9eb34fffed910516a18ba2103f1661457d4873a1f4808dffc6bf1",
+      "source": "RUCAIBox/HaluEval @ 207f479c555a68b8d2431631a95083b84b2accbe (MIT)",
+      "url": "https://raw.githubusercontent.com/RUCAIBox/HaluEval/207f479c555a68b8d2431631a95083b84b2accbe/data/general_data.json"
+    },
+    "halueval_qa": {
+      "clean": 2000,
+      "dropped_out_of_bounds": 0,
+      "hallucinated": 2000,
+      "items": 4000,
+      "output_sha256": "1aef3163d3c2b30e061560f03fbfb0964a0955dcd9c5f265fb0256229b69b5cf",
+      "paired": true,
+      "pairs": 2000,
+      "raw_sha256": "89ed139ec5e3a3169a0b30e45569ac1283846f76f27f7bb5e908ee6deed57e88",
+      "source": "RUCAIBox/HaluEval @ 207f479c555a68b8d2431631a95083b84b2accbe (MIT)",
+      "url": "https://raw.githubusercontent.com/RUCAIBox/HaluEval/207f479c555a68b8d2431631a95083b84b2accbe/data/qa_data.json"
+    },
+    "truthfulqa": {
+      "clean": 790,
+      "dropped_out_of_bounds": 0,
+      "hallucinated": 790,
+      "items": 1580,
+      "output_sha256": "b4b5b11a8d20b035dd21b0cf073cf2290266bec3acde79af8943d01b1be98f4b",
+      "paired": true,
+      "pairs": 790,
+      "raw_sha256": "b8d8ef1e12f98b4f2a9f47abc9765da0640b182b6c5d9b92f0c1a1f2f1e02e5c",
+      "source": "sylinrl/TruthfulQA @ f6be04e52bbcb41d4d20daee6358231d4a5015d2 (Apache-2.0)",
+      "url": "https://raw.githubusercontent.com/sylinrl/TruthfulQA/f6be04e52bbcb41d4d20daee6358231d4a5015d2/TruthfulQA.csv"
+    }
+  },
+  "seed": 20260904
+}
