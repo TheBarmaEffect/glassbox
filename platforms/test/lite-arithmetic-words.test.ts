@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { GlassboxLiteVerifier } from "../src/lite.js";
 
-// Ported from an uncommitted working copy of platforms/. Only the word-form arithmetic
-// tests came across; the other cases in the original file exercise probe enhancements
-// that still exist only in that copy and are tracked separately.
+// Ported from an uncommitted working copy of platforms/. This file covers the word-form
+// arithmetic cases; the remaining cases from the same original file exercise four other
+// probe enhancements and now live in lite-probe-recovery.test.ts.
 
 const verifier = new GlassboxLiteVerifier(() => new Date("2026-09-01T00:00:00.000Z"));
 

@@ -33,12 +33,42 @@ const MAX_CONTRADICTION_PAIRS = 20_000;
 const FACT_CHECK_CAVEAT =
   "GlassBox Lite is a deterministic reasoning check, not a fact-check; it does not browse, validate citations, or verify external facts.";
 
+// `100 %` is a separate alternation branch, not a member of the word group above. The
+// group is terminated by `\b`, and a percent sign is not a word character, so the closing
+// boundary could only hold when a letter or digit followed the sign. "This is 100%
+// certain." therefore reached the certainty probe as if it carried no absolute at all.
+// A stated 100% is the quantitative form of "always"/"never", which is why it belongs in
+// this probe rather than in the specificity probe that already sees the number.
 const CERTAINTY_PATTERN =
-  /\b(?:always|never|definitely|certainly|absolutely certain|absolute certainty|guaranteed|indisputable|undeniable|unquestionably|(?:without|beyond)\s+(?:a |any )?doubt|no doubt(?:\s+whatsoever)?|beyond question|proves?|proven|100\s*%|must be true)\b/i;
+  /\b(?:always|never|definitely|certainly|absolutely certain|absolute certainty|guaranteed|indisputable|undeniable|unquestionably|(?:without|beyond)\s+(?:a |any )?doubt|no doubt(?:\s+whatsoever)?|beyond question|proves?|proven|must be true)\b|\b100\s*%/i;
 const UNCERTAINTY_PATTERN =
   /\b(?:may|might|could|perhaps|possibly|likely|unlikely|uncertain|unclear|cannot confirm|can't confirm|do not know|don't know|unable to verify|not enough information)\b/i;
-const CITATION_PATTERN =
-  /https?:\/\/\S+|www\.\S+|\bdoi:\s*10\.\d{4,9}\/\S+|\[[0-9]{1,3}\]|\b[A-Z][A-Za-z'-]+(?:\s+et al\.)?\s*\([12][0-9]{3}\)/g;
+/**
+ * Citation *forms*, not citation vocabulary: every branch is a syntactic shape a reader
+ * would recognise as a reference, and none of them names a publisher, reporter or journal.
+ *
+ * The three added branches close forms the author-year branch cannot see at all. A case
+ * citation ("Smith v. Jones, 512 U.S. 44 (1994)") and a leading-parenthesis author-year
+ * ("(Page et al. 2021)") were both read as no citation whatsoever, so an answer resting
+ * entirely on an invented precedent was never surfaced for checking, and an answer that
+ * did carry its source was charged with being unsourced.
+ */
+const CASE_NAME_CITATION = "\\b[A-Z][A-Za-z'-]+\\s+v\\.?\\s+[A-Z][A-Za-z'-]+[^)]{0,40}\\([12][0-9]{3}\\)";
+/**
+ * Volume-reporter-page, with the parenthesised year required rather than optional. The
+ * triple on its own also describes an ordinary date ("12 October 2024") and a numbered
+ * heading, so requiring the year is what separates a citation from a coincidence. A
+ * short-form cite carrying no year stays out of scope; that is a miss, not a false report.
+ */
+const REPORTER_CITATION = "\\b\\d{1,4}\\s+[A-Z][A-Za-z.]{1,12}\\s+\\d{1,4}\\s*\\([12][0-9]{3}\\)";
+/** Author-year with the parenthesis first: "(Page et al. 2021)", "(Smith and Doe, 2019a)". */
+const PARENTHETICAL_AUTHOR_YEAR = "\\([A-Z][A-Za-z'-]+[^)]{0,40}?[12][0-9]{3}[a-z]?\\)";
+const CITATION_PATTERN = new RegExp(
+  "https?://\\S+|www\\.\\S+|\\bdoi:\\s*10\\.\\d{4,9}/\\S+|\\[[0-9]{1,3}\\]" +
+  "|\\b[A-Z][A-Za-z'-]+(?:\\s+et al\\.)?\\s*\\([12][0-9]{3}\\)" +
+  `|${CASE_NAME_CITATION}|${REPORTER_CITATION}|${PARENTHETICAL_AUTHOR_YEAR}`,
+  "g",
+);
 const VAGUE_ATTRIBUTION_NOUNS =
   "studies|study|research|researchers|experts|scientists|analysts|authorities|reports|literature|papers|sources|evidence|data";
 const VAGUE_ATTRIBUTION_VERBS =
@@ -56,6 +86,24 @@ const SOURCE_REQUEST_PATTERN =
   /\b(?:fact[- ]?check|verify (?:the )?facts?|is (?:this|that|it) true|correctness|cite|citation|source|evidence|reference|bibliograph)\b/i;
 const SPECIFIC_FACT_PATTERN =
   /(?:\b(?:19|20)\d{2}\b|\b\d+(?:\.\d+)?\s*%\b|[$€£]\s*\d|\bCVE-\d{4}-\d{4,}\b|\b\d+(?:\.\d+)?\s*(?:mg|ml|g|kg|GB|TB|ms)\b)/i;
+/**
+ * Actionable specificity that carries no number, so SPECIFIC_FACT_PATTERN cannot see it.
+ *
+ * Both branches are phrase-shape matchers rather than computed properties, and that is
+ * worth stating plainly: unlike arithmetic, there is nothing here to recompute. They are
+ * kept because they are the two forms a reader acts on directly — an organisation
+ * committed to a policy, and a named party quoted verbatim — and because the citation gate
+ * in the probe below means a claim that carries its source is never charged either way.
+ *
+ * POLICY_COMMITMENT is the failure behind chatbots that invented a refund policy their
+ * operator was then held to. ATTRIBUTED_QUOTE is the narrower of the two: it needs a
+ * reporting verb immediately followed by an opening quotation mark, which is punctuation
+ * structure rather than subject matter.
+ */
+const POLICY_COMMITMENT_PATTERN =
+  /\b(?:our|the|company|store|airline|bank|hospital)\s+(?:polic(?:y|ies)|terms|guarantee|warranty|refund policy)\b[^.]{0,80}\b(?:guarantee[sd]?|entitle[sd]?|allows?|permits?|covers?|requires?|within|no exceptions|full refund)\b|\b(?:you are|customers are|users are)\s+entitled to\b|\bwe (?:guarantee|will always|will never|promise)\b/i;
+const ATTRIBUTED_QUOTE_PATTERN =
+  /\b(?:said|stated|announced|declared|wrote|told|confirmed)\b\s*[:,]?\s*["“‘']/i;
 
 const NEGATION_PATTERN =
   /\b(?:not|never|no|cannot|can't|isn't|aren't|wasn't|weren't|doesn't|don't|didn't|won't|wouldn't|couldn't|shouldn't|hasn't|haven't|hadn't)\b/i;
@@ -286,8 +334,13 @@ function analyze(input: VerificationInput): Analysis {
   const exposedSecrets = secretSignals(credentialText(secretScanText));
   const dangerousActions = dangerousActionSignals(secretScanText);
   const unsafeNetworkTarget = networkBoundaryFinding(input.checkpoint?.target);
+  // The citation gate and the arithmetic exemption are per claim, not per answer: a source
+  // cited in the first sentence does not source the ninth, and a number this backend
+  // recomputed itself needs no external reference.
   const unsupportedSpecifics = claimTexts.filter((claim) =>
-    SPECIFIC_FACT_PATTERN.test(claim) && citationSignals(claim).length === 0 &&
+    (SPECIFIC_FACT_PATTERN.test(claim) || POLICY_COMMITMENT_PATTERN.test(claim) ||
+      ATTRIBUTED_QUOTE_PATTERN.test(claim)) &&
+    citationSignals(claim).length === 0 &&
     !arithmetic.some((check) => claim.includes(check.expression)),
   );
   const claims = claimTexts.map((text, index) => buildClaim(text, index, arithmetic));
@@ -319,7 +372,7 @@ function analyze(input: VerificationInput): Analysis {
       passed: unsupportedSpecifics.length === 0,
       severity: unsupportedSpecifics.length > 0 ? "medium" : "low",
       finding: unsupportedSpecifics.length > 0
-        ? "Specific dates, percentages, amounts, identifiers, or measurements appear without a citation marker or locally checked arithmetic relation."
+        ? "Specific dates, percentages, amounts, identifiers, measurements, policy commitments, or attributed quotations appear without a citation marker or locally checked arithmetic relation."
         : "No unsupported high-specificity factual signal was detected.",
       evidence: unsupportedSpecifics.slice(0, 3),
     },
@@ -470,7 +523,11 @@ function assertsUnhedgedCertainty(claim: string): boolean {
 function protectAbbreviations(value: string): string {
   return value
     .replace(/\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St)\./g, (match) => match.replaceAll(".", "\u2024"))
-    .replace(/\b(?:vs|etc|e\.g|i\.e)\./gi, (match) => match.replaceAll(".", "\u2024"));
+    // "et al." was missing, so every author-year citation was split across two claims and
+    // the year landed in a claim of its own with the citation left behind in the previous
+    // one. The specificity probe then read that orphaned year as an unsourced date. The
+    // preceding "et" is required so a sentence genuinely ending in "al." is left alone.
+    .replace(/\b(?:vs|etc|e\.g|i\.e|et al)\./gi, (match) => match.replaceAll(".", "\u2024"));
 }
 
 /**
@@ -762,7 +819,17 @@ function polarityContradiction(left: string, right: string): boolean {
   const rightTokens = meaningfulTokens(right);
   const intersection = [...leftTokens].filter((token) => rightTokens.has(token)).length;
   const union = new Set([...leftTokens, ...rightTokens]).size;
-  return intersection >= 2 && union > 0 && intersection / union >= 0.72;
+  if (union === 0) return false;
+  // The overlap floor of two is unreachable for a claim that has fewer than two content
+  // words at all, so "Yes, it is safe." against "No, it is not safe." could never be
+  // detected however plainly it contradicted itself: after stop-word filtering each side
+  // keeps one word. Scaling the floor to the shorter claim removes that blind spot while
+  // keeping the requirement strict — a one-word overlap must additionally account for
+  // half of the combined vocabulary, so two short claims that merely share a topic
+  // ("The API is public." / "The database is not public.") stay below the bar.
+  const shortest = Math.min(leftTokens.size, rightTokens.size);
+  if (shortest <= 2) return intersection >= 1 && intersection / union >= 0.5;
+  return intersection >= 2 && intersection / union >= 0.72;
 }
 
 function numericContradiction(left: string, right: string): boolean {

@@ -92,7 +92,7 @@ const PUBLIC_PROBE_COPY = {
   },
   unsupported_specificity: {
     passed: "No unsupported high-specificity factual signal was detected.",
-    failed: "A specific date, percentage, amount, identifier, or measurement needs support.",
+    failed: "A specific date, percentage, amount, identifier, measurement, policy commitment, or attributed quotation needs support.",
   },
   answer_relevance: {
     passed: "No clear lexical non-response signal was detected.",
