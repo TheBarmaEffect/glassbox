@@ -42,7 +42,7 @@ export const DANGEROUS_ACTION_PATTERNS: Array<[string, RegExp]> = [
 ];
 
 export const PROMPT_INJECTION_PATTERN =
-  /\b(?:ignore|disregard|forget)\b.{0,40}\b(?:previous|prior|above|system|developer)\b.{0,25}\b(?:instruction|message|prompt)s?\b|\b(?:reveal|print|repeat|expose|leak)\b.{0,40}\b(?:system prompt|developer message|secret|credential|api key|token)\b|\b(?:jailbreak|do anything now|developer mode)\b|<\/?(?:system|assistant|developer)>|\[(?:INST|SYSTEM)\]|\b(?:ignore|disregard|override|forget)\s+(?:all\s+|everything\s+)?(?:the\s+|your\s+)?(?:above|previous|prior|earlier|preceding)\b|\bforget everything\b|\bnew instructions?\s*:|\b(?:ignore|disregard|override|bypass)\b.{0,30}\b(?:safety|guardrail|guideline|restriction|policy|rule)s?\b/i;
+  /\b(?:ignore|disregard|forget)\b.{0,40}\b(?:previous|prior|above|system|developer)\b.{0,25}\b(?:instruction|message|prompt)s?\b|\b(?:reveal|print|repeat|expose|leak)\b.{0,40}\b(?:system prompt|developer message|secret|credential|api key|token)\b|\b(?:jailbreak|do anything now|developer mode)\b|<\/?(?:system|assistant|developer)>|\[(?:INST|SYSTEM|ASSISTANT)\]|(?:^|[\s"(])(?:SYSTEM|ASSISTANT|DEVELOPER)\s*:|\b(?:ignore|disregard|override|forget)\s+(?:all\s+|everything\s+)?(?:the\s+|your\s+)?(?:above|previous|prior|earlier|preceding)\b|\bforget everything\b|\bnew instructions?\s*:|\b(?:ignore|disregard|override|bypass)\b.{0,30}\b(?:safety|guardrail|guideline|restriction|policy|rule)s?\b/i;
 
 export const INVISIBLE_CHARACTERS = /[\p{Cf}\u034F\uFE00-\uFE0F]|[\u{E0100}-\u{E01EF}]/gu;
 
