@@ -1,0 +1,32 @@
+%% GlassBox request path. Verified at commit d852db0 (2026-08-11).
+%% Solid = production-reachable. Dashed = pending external approval.
+flowchart TD
+  subgraph Clients
+    W[Web / PWA  /app]
+    M[Remote MCP  /mcp]
+    G[GitHub App]
+    D[Discord]
+    T[Telegram]
+    S[Slack pilot]
+    A[Authenticated API]
+    R[Reddit Devvit]
+  end
+
+  W --> AUTH
+  M --> AUTH
+  G --> AUTH
+  D --> AUTH
+  T --> AUTH
+  S --> AUTH
+  A --> AUTH
+  R -.pending Fetch-domain approval.-> AUTH
+
+  AUTH["Provider authentication + strict input bounds<br/>Ed25519 / HMAC / secret header / bearer<br/>unsigned to 401 (verified live)"]
+  ADMIT["Tenant admission + requester limits + replay protection<br/>10 audits / 10 min - 24 h event ids"]
+  QUEUE["Bounded queue - concurrency 1<br/>daily ceiling 100 accepted audits"]
+  LITE["GlassBox Lite deterministic verifier<br/>no model call - no network lookup<br/>7 bounded probes"]
+  PROJ["Privacy-minimized projection<br/>drops question, answer, excerpts,<br/>timestamps, log_id, inputs_hash"]
+  FMT["Platform-native Trust Card formatting<br/>markdown, mentions, links,<br/>control and bidi characters neutralized"]
+
+  AUTH --> ADMIT --> QUEUE --> LITE --> PROJ --> FMT
+  FMT --> OUT[Verdict - ECS - findings - probes - caveats]
