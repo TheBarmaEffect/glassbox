@@ -8,7 +8,10 @@ services:
     dockerContext: .
     healthCheckPath: /ready
     numInstances: 1
-    autoDeploy: false
+    # Auto-deploy on push to the tracked branch. The repository CI workflow is the gate;
+    # for deploy-only-after-CI-passes, the dashboard toggle must also be set, as Render
+    # exposes that mode there rather than in the blueprint.
+    autoDeploy: true
     envVars:
       - key: NODE_VERSION
         value: "20"
@@ -20,8 +23,15 @@ services:
         value: "1"
       - key: PLATFORM_MAX_QUEUE
         value: "50"
+      # Per-caller rate bucket (requests per 10-minute window). Before per-caller keys
+      # existed this had to stay tiny, because it applied to every caller combined.
+      - key: PLATFORM_RATE_LIMIT
+        value: "60"
+      # Global daily ceiling, kept as abuse protection rather than as a capacity limit:
+      # the Lite backend verifies in well under a millisecond, so 100/day was throttling
+      # the evidence collection, not the CPU.
       - key: PLATFORM_DAILY_REQUEST_LIMIT
-        value: "100"
+        value: "5000"
       - key: PLATFORM_ALLOW_PUBLIC
         value: "false"
       - key: PLATFORM_PUBLIC_PLATFORMS

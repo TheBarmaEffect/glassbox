@@ -1,4 +1,5 @@
 import { config } from "./config.js";
+import { GatewayMetrics, verificationEvent, type RejectionKind } from "./metrics.js";
 import { normalizeInput } from "./parser.js";
 import type { Platform, TrustCard, VerificationInput, Verifier } from "./types.js";
 
@@ -13,6 +14,13 @@ interface RunOptions {
   idempotencyKey: string;
   rateKey: string;
   tenantKey: string;
+  /**
+   * Which entry point this request arrived through, for the traffic counters only. The
+   * HTTP surfaces name themselves ("verify", "govern", "mcp") because one platform value
+   * can arrive through more than one of them; a platform adapter falls back to its own
+   * platform name.
+   */
+  surface?: string;
 }
 
 interface QueueItem {
@@ -21,6 +29,8 @@ interface QueueItem {
   resolve: (card: TrustCard) => void;
   reject: (error: unknown) => void;
   deadline: number;
+  /** When the request was admitted, so latency covers queue wait as well as the audit. */
+  admittedAt: number;
 }
 
 interface AdmissionPolicy {
@@ -39,6 +49,10 @@ export class VerificationService {
   private accepting = true;
   private dailyKey = "";
   private dailyCount = 0;
+  // Every surface reaches the verifier through run(), so counting here is the only way to
+  // count each request exactly once without repeating the same instrumentation in seven
+  // adapters and drifting.
+  private readonly gatewayMetrics = new GatewayMetrics();
 
   constructor(
     private readonly verifier: Verifier,
@@ -57,41 +71,41 @@ export class VerificationService {
 
   run(input: VerificationInput, options: RunOptions): Promise<TrustCard> {
     this.cleanup();
-    if (!this.accepting) return Promise.reject(new QueueFullError("Service is shutting down."));
+    if (!this.accepting) return this.refuse("queue", new QueueFullError("Service is shutting down."));
     const tenantKey = options.tenantKey.toLowerCase();
     const platformIsPublic = this.admission.publicPlatforms?.has(input.platform) ?? false;
     if (!this.admission.allowPublic && !platformIsPublic && !this.admission.tenants.has(tenantKey)) {
-      return Promise.reject(new AdmissionError("This community is not enabled for the GlassBox pilot."));
+      return this.refuse("admission", new AdmissionError("This community is not enabled for the GlassBox pilot."));
     }
     let normalized: VerificationInput;
     try {
       normalized = normalizeInput(input);
     } catch (error) {
-      return Promise.reject(error);
+      return this.refuse("input", error);
     }
     if (this.seen.has(options.idempotencyKey)) {
-      return Promise.reject(new DuplicateRequestError("This event was already processed."));
+      return this.refuse("duplicate", new DuplicateRequestError("This event was already processed."));
     }
     if (this.inFlight.has(options.idempotencyKey)) {
-      return Promise.reject(new DuplicateRequestError("This event is already being processed."));
+      return this.refuse("duplicate", new DuplicateRequestError("This event is already being processed."));
     }
     try {
       this.enforceRateLimit(options.rateKey);
     } catch (error) {
-      return Promise.reject(error);
+      return this.refuse("rate", error);
     }
     this.resetDailyCounter();
     if (this.dailyCount >= this.dailyRequestLimit) {
-      return Promise.reject(new GlobalLimitError("The daily GlassBox pilot request limit has been reached."));
+      return this.refuse("global", new GlobalLimitError("The daily GlassBox pilot request limit has been reached."));
     }
     const estimatedCompletionMs = Math.ceil(
       (this.active + this.queue.length + 1) / this.maxConcurrency,
     ) * this.estimatedJobMs;
     if (estimatedCompletionMs > this.jobTimeoutMs) {
-      return Promise.reject(new QueueFullError("GlassBox cannot finish within the platform response window."));
+      return this.refuse("queue", new QueueFullError("GlassBox cannot finish within the platform response window."));
     }
     if (this.queue.length >= this.maxQueue) {
-      return Promise.reject(new QueueFullError("GlassBox is at capacity. Try again shortly."));
+      return this.refuse("queue", new QueueFullError("GlassBox is at capacity. Try again shortly."));
     }
 
     this.dailyCount += 1;
@@ -103,6 +117,7 @@ export class VerificationService {
         resolve,
         reject,
         deadline: Date.now() + this.jobTimeoutMs,
+        admittedAt: Date.now(),
       });
       this.drain();
     });
@@ -112,6 +127,11 @@ export class VerificationService {
 
   status(): { active: number; queued: number } {
     return { active: this.active, queued: this.queue.length };
+  }
+
+  /** In-process traffic counters. Aggregates only; see src/metrics.ts. */
+  metrics(): GatewayMetrics {
+    return this.gatewayMetrics;
   }
 
   markDelivered(idempotencyKey: string): void {
@@ -132,6 +152,9 @@ export class VerificationService {
   stop(): void {
     this.accepting = false;
     for (const item of this.queue.splice(0)) {
+      // Admitted but never verified, so it belongs in the refusal column rather than
+      // silently vanishing from both sides of the ledger.
+      this.gatewayMetrics.recordRejection("queue");
       item.reject(new QueueFullError("Service is shutting down."));
       this.inFlight.delete(item.options.idempotencyKey);
     }
@@ -149,6 +172,7 @@ export class VerificationService {
       const item = this.queue.shift();
       if (!item) return;
       if (item.deadline <= Date.now()) {
+        this.gatewayMetrics.recordRejection("timeout");
         item.reject(new JobTimeoutError("GlassBox could not finish before the platform deadline."));
         this.inFlight.delete(item.options.idempotencyKey);
         continue;
@@ -167,6 +191,7 @@ export class VerificationService {
       };
       const timer = setTimeout(() => {
         timedOut = true;
+        this.gatewayMetrics.recordRejection("timeout");
         item.reject(new JobTimeoutError("GlassBox could not finish before the platform deadline."));
         try {
           const reset = this.verifier.reset?.();
@@ -181,7 +206,10 @@ export class VerificationService {
       }, item.deadline - Date.now());
       void this.verifier.verify(item.input).then(
         (card) => {
+          // A late result after the deadline was already counted as a timeout. Counting it
+          // again here would report more outcomes than there were requests.
           if (timedOut) return;
+          this.count(item, card);
           const deliveryTimer = setTimeout(() => {
             this.awaitingDelivery.delete(item.options.idempotencyKey);
             this.inFlight.delete(item.options.idempotencyKey);
@@ -191,12 +219,43 @@ export class VerificationService {
           item.resolve(card);
         },
         (error) => {
-          if (!timedOut) item.reject(error);
+          if (timedOut) return;
+          this.gatewayMetrics.recordRejection("verifier");
+          item.reject(error);
         },
       ).finally(() => {
         clearTimeout(timer);
         release();
       });
+    }
+  }
+
+  /**
+   * Refuse a request and count it. Every early return in run() goes through here so the
+   * refusal column cannot silently miss a path when a new guard is added: the counter and
+   * the rejection are the same statement.
+   */
+  private refuse(kind: RejectionKind, error: unknown): Promise<never> {
+    this.gatewayMetrics.recordRejection(kind);
+    return Promise.reject(error);
+  }
+
+  /**
+   * Counting is strictly secondary to answering. A verifier that returns a card missing
+   * the shape its own type promises would otherwise throw here, leaving the caller's
+   * promise unsettled until the job deadline. An uncounted audit is a worse metric; a
+   * stalled caller is a worse outage, so the outage loses.
+   */
+  private count(item: QueueItem, card: TrustCard): void {
+    try {
+      this.gatewayMetrics.recordVerification(verificationEvent(card, {
+        surface: item.options.surface ?? item.input.platform,
+        checkpoint_type: item.input.checkpoint?.type ?? "unspecified",
+        latency_ms: Date.now() - item.admittedAt,
+      }));
+    } catch {
+      // Deliberately swallowed. The tests assert exact counts, so a defect in the counters
+      // fails there rather than degrading a live request.
     }
   }
 

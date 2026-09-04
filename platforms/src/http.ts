@@ -10,10 +10,18 @@ export function parseJson<T>(body: Buffer): T {
   return JSON.parse(body.toString("utf8")) as T;
 }
 
+/**
+ * Constant-time string comparison.
+ *
+ * Comparing lengths first short-circuits, which leaks the secret's length to a caller who
+ * can time the response. Both sides are hashed to a fixed 32 bytes before comparison, so
+ * the compared length is constant regardless of the inputs, and the digest comparison is
+ * still the timing-safe one.
+ */
 export function safeEqual(left: string, right: string): boolean {
-  const a = Buffer.from(left);
-  const b = Buffer.from(right);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  const a = crypto.createHash("sha256").update(left, "utf8").digest();
+  const b = crypto.createHash("sha256").update(right, "utf8").digest();
+  return crypto.timingSafeEqual(a, b);
 }
 
 export function verifyHmac(body: Buffer, secret: string, signature: string, prefix = "sha256="): boolean {

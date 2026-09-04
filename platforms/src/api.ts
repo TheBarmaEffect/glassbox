@@ -12,6 +12,7 @@ import {
   RateLimitError,
   VerificationService,
 } from "./service.js";
+import { CLIENT_ID_HEADER, apiRateKey } from "./ratekey.js";
 import type { VerificationInput } from "./types.js";
 
 export function apiRouter(service: VerificationService): Router {
@@ -51,7 +52,15 @@ function apiHandler(service: VerificationService, enforceGate: boolean) {
         throw new InputError("Idempotency key must contain 1 to 200 visible ASCII characters.");
       }
       const idempotency = suppliedIdempotency ?? crypto.randomUUID();
-      const eventKey = `${enforceGate ? "govern" : "api"}:${idempotency}`;
+      const rateKey = apiRateKey(
+        request.header(CLIENT_ID_HEADER),
+        request.ip ?? request.socket.remoteAddress ?? "unknown",
+      );
+      // Idempotency keys are caller-chosen, so a single global namespace let any caller
+      // burn another caller's key for the whole 24-hour dedup window simply by guessing
+      // it. Scoping the key to the (hashed, non-reversible) caller identity makes the
+      // namespace per-caller, which is what an idempotency key is supposed to mean.
+      const eventKey = `${enforceGate ? "govern" : "api"}:${rateKey}:${idempotency}`;
       const card = await service.run(
         {
           platform: body.platform ?? "api",
@@ -61,16 +70,26 @@ function apiHandler(service: VerificationService, enforceGate: boolean) {
           checkpoint: body.checkpoint,
           constitution: body.constitution,
           response_policy: body.response_policy,
+          tool: body.tool,
+          tool_pins: body.tool_pins,
+          allowed_tools: body.allowed_tools,
         },
         {
           idempotencyKey: eventKey,
-          rateKey: "api:shared",
+          // Per caller, not one bucket for the whole API.
+          rateKey,
           tenantKey: "api",
+          // The counters separate the advisory endpoint from the enforcing gate. Both
+          // arrive with platform "api", so the platform field cannot tell them apart, and
+          // conflating them would report withheld outputs on a surface that withholds none.
+          surface: enforceGate ? "govern" : "verify",
         },
       );
       try {
         if (enforceGate) {
           const action = card.governance?.response.action ?? "block";
+          // The gate enforces, so the audit record must say so.
+          if (card.governance) card.governance.response.executed = true;
           const released = action === "allow" || action === "record";
           const nextStep = action === "retry" ? "retry" : action === "escalate" ? "human_review" : null;
           const status = released ? 200 : action === "block" ? 422 : 409;

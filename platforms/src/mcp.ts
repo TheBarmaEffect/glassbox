@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import { config } from "./config.js";
+import { hashedRateKey } from "./ratekey.js";
 import { parseJson, publicError, rawBody, sendJson } from "./http.js";
 import {
   MAX_ANSWER_CHARS,
@@ -16,14 +17,8 @@ import { VerificationService } from "./service.js";
 import type { RedTeamProbe, TrustCard } from "./types.js";
 
 export const GLASSBOX_MCP_TOOL = "glassbox_verify_answer";
-const MCP_RATE_SECRET = config.sharedSecret ?? crypto.randomBytes(32).toString("hex");
-
 export function mcpRateKey(clientAddress: string): string {
-  const digest = crypto.createHmac("sha256", MCP_RATE_SECRET)
-    .update(clientAddress || "unknown")
-    .digest("hex")
-    .slice(0, 32);
-  return `mcp:${digest}`;
+  return hashedRateKey("mcp", clientAddress);
 }
 
 const PUBLIC_PROBE_COPY = {
@@ -223,6 +218,7 @@ export function createGlassboxMcpServer(
             idempotencyKey: eventKey,
             rateKey: requestContext.rateKey ?? "mcp:public",
             tenantKey: "mcp:public",
+            surface: "mcp",
           },
         );
         service.markDelivered(eventKey);

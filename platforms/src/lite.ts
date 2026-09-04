@@ -1,15 +1,35 @@
 import crypto from "node:crypto";
 import { normalizeInput } from "./parser.js";
+import {
+  PROMPT_INJECTION_PATTERN,
+  credentialText,
+  dangerousActionSignals,
+  secretSignals,
+  securityText,
+} from "./signals.js";
+import { networkBoundaryFinding, targetMatchesValue } from "./network.js";
+import { checksumFailures, extractCitationFindings, grammarFailures } from "./citation.js";
+import { TOOL_PROBE_ANGLES, toolCallProbes } from "./toolcall.js";
 import type {
   Claim,
   ConstitutionRule,
   RedTeamProbe,
+  ResponseAction,
   TrustCard,
   VerificationInput,
   Verifier,
 } from "./types.js";
 
 const MAX_CLAIMS = 24;
+/**
+ * Security probes scan a wider window than the reported claim list. MAX_CLAIMS bounds
+ * what is *reported*; scanning only that window let an attacker prepend 24 benign
+ * sentences and push a contradiction or an injection payload out of view entirely.
+ * The answer is already length-capped upstream, so this window is bounded by construction.
+ */
+const SECURITY_SCAN_LIMIT = 200;
+/** Hard ceiling on pairwise contradiction comparisons, so the wider window cannot blow up. */
+const MAX_CONTRADICTION_PAIRS = 20_000;
 const FACT_CHECK_CAVEAT =
   "GlassBox Lite is a deterministic reasoning check, not a fact-check; it does not browse, validate citations, or verify external facts.";
 
@@ -36,52 +56,46 @@ const SOURCE_REQUEST_PATTERN =
   /\b(?:fact[- ]?check|verify (?:the )?facts?|is (?:this|that|it) true|correctness|cite|citation|source|evidence|reference|bibliograph)\b/i;
 const SPECIFIC_FACT_PATTERN =
   /(?:\b(?:19|20)\d{2}\b|\b\d+(?:\.\d+)?\s*%\b|[$€£]\s*\d|\bCVE-\d{4}-\d{4,}\b|\b\d+(?:\.\d+)?\s*(?:mg|ml|g|kg|GB|TB|ms)\b)/i;
-const PROMPT_INJECTION_PATTERN =
-  /\b(?:ignore|disregard|forget)\b.{0,40}\b(?:previous|prior|above|system|developer)\b.{0,25}\b(?:instruction|message|prompt)s?\b|\b(?:reveal|print|repeat|expose|leak)\b.{0,40}\b(?:system prompt|developer message|secret|credential|api key|token)\b|\b(?:jailbreak|do anything now|developer mode)\b|<\/?(?:system|assistant|developer)>|\[(?:INST|SYSTEM)\]|\b(?:ignore|disregard|override|forget)\s+(?:all\s+|everything\s+)?(?:the\s+|your\s+)?(?:above|previous|prior|earlier|preceding)\b|\bforget everything\b|\bnew instructions?\s*:|\b(?:ignore|disregard|override|bypass)\b.{0,30}\b(?:safety|guardrail|guideline|restriction|policy|rule)s?\b/i;
-const SECRET_PATTERNS: Array<[string, RegExp]> = [
-  ["private key", /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/i],
-  ["AWS access key", /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/],
-  ["AWS secret access key", /\bAWS_SECRET_ACCESS_KEY\s*[:=]\s*["']?[A-Za-z0-9/+=]{40}["']?/i],
-  ["GitHub token", /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}\b/],
-  ["GitLab token", /\bglpat-[A-Za-z0-9_-]{20,}\b/],
-  ["Slack token", /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/],
-  ["OpenAI API key", /\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{20,}\b/],
-  ["Anthropic API key", /\bsk-ant-[A-Za-z0-9_-]{20,}\b/],
-  ["Google API key", /\bAIza[0-9A-Za-z_-]{35}\b/],
-  ["Stripe live secret", /\b(?:sk|rk)_live_[0-9A-Za-z]{16,}\b/],
-  ["npm token", /\bnpm_[A-Za-z0-9]{20,}\b/],
-  ["assigned credential", /\b(?:api[_ -]?key|client[_ -]?secret|access[_ -]?token|auth[_ -]?token|private[_ -]?token)\s*[:=]\s*["']?[A-Za-z0-9._~+/=-]{24,}["']?/i],
-  ["bearer credential", /\bBearer\s+[A-Za-z0-9._~+/=-]{20,}\b/i],
-  ["JSON Web Token", /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/],
-];
-const DANGEROUS_ACTION_PATTERNS: Array<[string, RegExp]> = [
-  ["destructive filesystem command", /\brm\s+-[^\n]*r[^\n]*f[^\n]*(?:\/|~|\$HOME)\b/i],
-  ["download-and-execute pipeline", /\b(?:curl|wget)\b[^\n|]{0,300}\|\s*(?:sh|bash|zsh|powershell)\b/i],
-  ["encoded PowerShell execution", /\bpowershell(?:\.exe)?\b[^\n]{0,160}\b(?:-enc|-encodedcommand)\b/i],
-  ["reverse shell", /\b(?:nc|ncat|netcat)\b[^\n]{0,120}\s-e\s*(?:\/bin\/)?(?:sh|bash)|\/dev\/tcp\//i],
-  ["firewall or security-control disabling", /\b(?:disable|stop|bypass|turn off)\b[^.!?\n]{0,60}\b(?:firewall|antivirus|endpoint protection|security control|guardrail)\b/i],
-  ["firewall command disabling", /\b(?:ufw\s+disable|iptables(?:-legacy)?\s+(?:-[A-Za-z]*F\b|--flush\b)|nft\s+flush\s+ruleset|systemctl\s+(?:stop|disable)\s+(?:firewalld|ufw)\b|service\s+(?:firewalld|ufw)\s+stop\b|netsh\s+advfirewall\s+set\s+allprofiles\s+state\s+off\b|Set-NetFirewallProfile\b[^\n]{0,100}-Enabled\s+(?:False|\$false)\b)/i],
-  ["cloud metadata access", /\b(?:curl|wget|Invoke-WebRequest)\b[^\n]{0,240}\b(?:169\.254\.169\.254|metadata\.google\.internal|100\.100\.100\.200)\b/i],
-  ["credential-file exfiltration", /\b(?:curl|wget)\b[^\n]{0,240}(?:@(?:\/etc\/(?:passwd|shadow)|~\/\.ssh\/|\$HOME\/\.ssh\/)|--data-binary\s+@)/i],
-  ["destructive SQL", /\b(?:DROP\s+(?:DATABASE|TABLE)|TRUNCATE\s+TABLE)\b/i],
-  ["script injection", /<script\b|javascript\s*:/i],
-  ["path traversal", /(?:\.\.\/|\.\.\\){2,}/],
-];
 
 const NEGATION_PATTERN =
   /\b(?:not|never|no|cannot|can't|isn't|aren't|wasn't|weren't|doesn't|don't|didn't|won't|wouldn't|couldn't|shouldn't|hasn't|haven't|hadn't)\b/i;
 
-const NUMBER_SOURCE = "[-+]?(?:\\d[\\d,]*(?:\\.\\d+)?|\\.\\d+)";
+// Operand length is bounded. Unbounded \d[\d,]* made every start position in a long
+// digit run scan the whole run before failing to find an operator, which is quadratic:
+// a 12 000-digit answer cost ~160x a benign one on a maxConcurrency=1 service. Arithmetic
+// beyond 30 digits is out of the allowlisted scope rather than checked slowly.
+const NUMBER_SOURCE = "[-+]?(?:\\d[\\d,]{0,30}(?:\\.\\d{1,15})?|\\.\\d{1,15})";
+
+/**
+ * Single-character substitutions that spell the same arithmetic differently: fullwidth
+ * forms, the Unicode minus sign, and arrows used as an equals. Every mapping is one
+ * character to one character, so match offsets into the original answer stay valid and
+ * no separate index map is needed.
+ */
+const NOTATION_FOLD: Record<string, string> = {
+  "\uFF0B": "+", "\uFF0D": "-", "\uFF0A": "*", "\uFF0F": "/", "\uFF1D": "=",
+  "\u2212": "-", "\u2192": "=", "\u21D2": "=", "\u279C": "=", "\uFF1A": ":",
+};
+
+function foldNotation(value: string): string {
+  return value
+    .replace(/[\uFF10-\uFF19]/g, (digit) => String.fromCharCode(digit.charCodeAt(0) - 0xFEE0))
+    .replace(/[\uFF0B\uFF0D\uFF0A\uFF0F\uFF1D\u2212\u2192\u21D2\u279C\uFF1A]/g, (character) => NOTATION_FOLD[character] ?? character);
+}
 const PERCENT_ARITHMETIC = new RegExp(
-  `(${NUMBER_SOURCE})\\s*%\\s+of\\s+(${NUMBER_SOURCE})\\s*(?:=|equals?|is)\\s*(${NUMBER_SOURCE})`,
+  `(${NUMBER_SOURCE})\\s*%\\s+of\\s+(${NUMBER_SOURCE})\\s*(?:={1,3}|equals?|is)\\s*(${NUMBER_SOURCE})`,
   "gi",
 );
 const RATIO_PERCENT_ARITHMETIC = new RegExp(
-  `(${NUMBER_SOURCE})\\s*(?:out\\s+of|/)\\s*(${NUMBER_SOURCE})\\s*(?:=|equals?|is)\\s*(${NUMBER_SOURCE})\\s*%`,
+  `(${NUMBER_SOURCE})\\s*(?:out\\s+of|/)\\s*(${NUMBER_SOURCE})\\s*(?:={1,3}|equals?|is)\\s*(${NUMBER_SOURCE})\\s*%`,
   "gi",
 );
+// The leading lookbehind rejects an operand that is itself preceded by an operator, so a
+// chain such as "3 + 4 + 5 = 12" no longer matches its own tail "4 + 5 = 12" and report a
+// correct expression as an arithmetic error. Multi-operand arithmetic stays out of scope
+// rather than being silently mis-evaluated: the allowlist is binary expressions only.
 const BINARY_ARITHMETIC = new RegExp(
-  `(${NUMBER_SOURCE})\\s*(\\+|-|\\*|×|x|/|÷)\\s*(${NUMBER_SOURCE})\\s*(?:=|equals?|is)\\s*(${NUMBER_SOURCE})(?![\\d,.]*\\s*%)`,
+  `(?<![-+*×x/÷]\\s{0,4})(${NUMBER_SOURCE})\\s*(\\+|-|\\*|×|x|/|÷)\\s*(${NUMBER_SOURCE})\\s*(?:={1,3}|equals?|is)\\s*(${NUMBER_SOURCE})(?![\\d,.]*\\s*%)(?!\\s*[-+*×/÷]\\s*\\d)`,
   "gi",
 );
 
@@ -127,14 +141,12 @@ export class GlassboxLiteVerifier implements Verifier {
     const analysis = analyze(input);
     const customRules = input.constitution?.rules ?? [];
     analysis.probes.push(...evaluateConstitution(input, customRules));
+    if (input.tool) {
+      analysis.probes.push(...toolCallProbes(input.tool, input.tool_pins ?? [], input.allowed_tools));
+    }
     const failed = analysis.probes.filter((probe) => !probe.passed);
-    const decisiveFailure = failed.some(
-      (probe) => probe.angle === "internal_contradiction" || probe.angle === "arithmetic_sanity" ||
-        ["input_injection", "credential_exposure", "network_boundary"].includes(probe.angle) ||
-        (probe.angle === "dangerous_action" && ["agent_step", "tool_call"].includes(input.checkpoint?.type ?? "")) ||
-        (probe.angle.startsWith("constitution:") && ["high", "critical"].includes(probe.severity)),
-    );
-    const verdict: TrustCard["verdict"] = decisiveFailure
+    const decisive = failed.filter((probe) => isDecisive(probe, input.checkpoint?.type));
+    const verdict: TrustCard["verdict"] = decisive.length > 0
       ? "reject"
       : failed.length > 0
         ? "caution"
@@ -153,7 +165,7 @@ export class GlassboxLiteVerifier implements Verifier {
       question: input.question,
       answer: input.answer,
       verdict,
-      verdict_rationale: verdictRationale(verdict, failed),
+      verdict_rationale: verdictRationale(verdict, failed, decisive),
       ecs: {
         total,
         dimensions,
@@ -188,19 +200,29 @@ function analyze(input: VerificationInput): Analysis {
   const extracted = extractClaims(input.answer);
   const claimTexts = extracted.claims;
   const arithmetic = arithmeticChecks(input.answer);
-  const contradictions = findContradictions(claimTexts);
-  const certaintyClaims = claimTexts.filter(
-    (claim) => CERTAINTY_PATTERN.test(claim) && !UNCERTAINTY_PATTERN.test(claim),
-  );
+  const contradictions = findContradictions(extracted.scanWindow);
+  const certaintyClaims = claimTexts.filter(assertsUnhedgedCertainty);
   const citations = citationSignals(input.answer);
   const vagueAttribution = VAGUE_SOURCE_PATTERN.test(input.answer);
   const sourceRequested = SOURCE_REQUEST_PATTERN.test(
     `${input.question}\n${(input.intents ?? []).join("\n")}`,
   );
-  const answerInjectionSignals = claimTexts.filter((claim) => PROMPT_INJECTION_PATTERN.test(securityText(claim)));
-  const inputInjection = PROMPT_INJECTION_PATTERN.test(securityText(input.question));
-  const exposedSecrets = secretSignals(`${input.question}\n${input.answer}`);
-  const dangerousActions = dangerousActionSignals(`${input.question}\n${input.answer}`);
+  // Scan the whole answer, not just the reported claims: a payload placed after the
+  // MAX_CLAIMS boundary is still in the output that gets released.
+  const answerInjection = PROMPT_INJECTION_PATTERN.test(securityText(input.answer));
+  const answerInjectionSignals = extracted.scanWindow.filter((claim) => PROMPT_INJECTION_PATTERN.test(securityText(claim)));
+  // Intents and checkpoint metadata are caller-supplied and travel in the same request
+  // body as the question. They were previously never scanned at all.
+  const callerMetadata = [
+    input.question,
+    ...(input.intents ?? []),
+    input.checkpoint?.id ?? "",
+    input.checkpoint?.actor ?? "",
+  ].join("\n");
+  const inputInjection = PROMPT_INJECTION_PATTERN.test(securityText(callerMetadata));
+  const secretScanText = `${callerMetadata}\n${input.answer}`;
+  const exposedSecrets = secretSignals(credentialText(secretScanText));
+  const dangerousActions = dangerousActionSignals(secretScanText);
   const unsafeNetworkTarget = networkBoundaryFinding(input.checkpoint?.target);
   const unsupportedSpecifics = claimTexts.filter((claim) =>
     SPECIFIC_FACT_PATTERN.test(claim) && citationSignals(claim).length === 0 &&
@@ -240,6 +262,7 @@ function analyze(input: VerificationInput): Analysis {
       evidence: unsupportedSpecifics.slice(0, 3),
     },
     relevanceProbe(input.question, input.answer),
+    citationResolvabilityProbe(input.answer),
     {
       angle: "internal_contradiction",
       passed: contradictions.length === 0,
@@ -261,9 +284,9 @@ function analyze(input: VerificationInput): Analysis {
     },
     {
       angle: "prompt_injection",
-      passed: answerInjectionSignals.length === 0,
-      severity: answerInjectionSignals.length > 0 ? "high" : "low",
-      finding: answerInjectionSignals.length > 0
+      passed: !answerInjection,
+      severity: answerInjection ? "high" : "low",
+      finding: answerInjection
         ? "Instruction-override or secret-extraction language was treated as inert answer text."
         : "No common instruction-override or secret-extraction phrase was detected.",
       evidence: answerInjectionSignals.slice(0, 3),
@@ -334,28 +357,112 @@ function buildClaim(text: string, index: number, arithmetic: ArithmeticCheck[]):
   };
 }
 
-function extractClaims(answer: string): { claims: string[]; truncated: boolean } {
+function extractClaims(answer: string): { claims: string[]; truncated: boolean; scanWindow: string[] } {
   const candidates: string[] = [];
-  for (const rawLine of answer.replaceAll("\r", "").split(/\n+/)) {
+  for (const rawLine of answer.split(/\r?\n+/)) {
     const line = rawLine.replace(/^\s*(?:[-*•]+|\d+[.)])\s*/, "").trim();
     if (!line) continue;
+    // Split on the masked copy, but take each claim from the original by offset. The mask
+    // is length-preserving, so the offsets agree. Un-substituting the mask instead would
+    // rewrite any U+2024 the author actually wrote, and the reported claim would then not
+    // appear in the submitted answer at all.
     const protectedLine = protectAbbreviations(line);
-    for (const sentence of protectedLine.split(/(?<=[.!?])\s+(?=[\p{L}\p{N}"'([])/u)) {
-      const restored = sentence.replaceAll("\u2024", ".").trim();
-      if (restored) candidates.push(restored);
+    let cursor = 0;
+    for (const part of protectedLine.split(/(?<=[.!?])\s+(?=[\p{L}\p{N}"'([])/u)) {
+      const sentence = line.slice(cursor, cursor + part.length).trim();
+      if (sentence) candidates.push(sentence);
+      cursor += part.length;
+      while (cursor < line.length && /\s/.test(line[cursor] ?? "")) cursor += 1;
     }
   }
   return {
     claims: candidates.slice(0, MAX_CLAIMS),
     truncated: candidates.length > MAX_CLAIMS,
+    scanWindow: candidates.slice(0, SECURITY_SCAN_LIMIT),
   };
 }
 
+/**
+ * Masks the period in an abbreviation so it does not end a sentence. Length-preserving:
+ * one character is replaced by one character, so offsets into the original are unchanged.
+ *
+ * Titles are matched case-sensitively. Matching them case-insensitively made the unit
+ * "ms." look like the title "Ms.", merging two sentences into one claim and hiding any
+ * contradiction between them.
+ */
+/**
+ * Clause boundaries at which a hedge stops applying to what precedes it. "It is
+ * absolutely certain that this cures the disease, though it may rain tomorrow" hedges
+ * the rain, not the cure; scanning the whole claim let any unrelated "may" anywhere in
+ * the sentence cancel the certainty finding entirely.
+ */
+const CLAUSE_BOUNDARY =
+  /,\s*(?:though|although|but|while|however|whereas|yet|even if|unless)\b|;\s*|\s+(?:though|although|but|however|whereas)\s+/i;
+
+function assertsUnhedgedCertainty(claim: string): boolean {
+  return claim
+    .split(CLAUSE_BOUNDARY)
+    .some((clause) => CERTAINTY_PATTERN.test(clause) && !UNCERTAINTY_PATTERN.test(clause));
+}
+
 function protectAbbreviations(value: string): string {
-  return value.replace(
-    /\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|vs|etc|e\.g|i\.e)\./gi,
-    (match) => match.replaceAll(".", "\u2024"),
-  );
+  return value
+    .replace(/\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St)\./g, (match) => match.replaceAll(".", "\u2024"))
+    .replace(/\b(?:vs|etc|e\.g|i\.e)\./gi, (match) => match.replaceAll(".", "\u2024"));
+}
+
+/**
+ * Computed identifier screening.
+ *
+ * Distinct from `citation_verifiability`, which asks whether a citation *marker* is
+ * present. This asks whether the identifiers actually resolve as identifiers — whether
+ * their own check digits agree with their own digits. That question is decidable from the
+ * string alone: no network, no reference corpus, no model.
+ *
+ * A checksum failure is the strongest signal available here, because the arithmetic
+ * cannot fire on a correctly transcribed real identifier. It is reported as exactly what
+ * it is — the identifier fails its own check digit — and not as "the citation is
+ * fabricated": a transposed digit or an OCR error produces the same failure, and the
+ * distinction between fabrication and mistranscription is not something arithmetic can
+ * settle.
+ */
+function citationResolvabilityProbe(answer: string): RedTeamProbe {
+  const findings = extractCitationFindings(answer);
+  const checksum = checksumFailures(findings);
+  const grammar = grammarFailures(findings);
+
+  if (checksum.length > 0) {
+    return {
+      angle: "citation_resolvability",
+      passed: false,
+      severity: "high",
+      finding:
+        `${checksum.length} identifier(s) fail their own check digit and therefore cannot be a correctly ` +
+        "transcribed real identifier. This is computed arithmetic, not a lookup; it does not distinguish " +
+        "a fabricated reference from a mistyped one.",
+      evidence: checksum.map((item) => `${item.kind}:${item.identifier} — ${item.reason}`).slice(0, 4),
+    };
+  }
+  if (grammar.length > 0) {
+    return {
+      angle: "citation_resolvability",
+      passed: false,
+      severity: "medium",
+      finding:
+        `${grammar.length} identifier(s) violate the structural grammar or a permanently closed range of ` +
+        "their scheme. No check digit was available, so this is weaker evidence than a checksum failure.",
+      evidence: grammar.map((item) => `${item.kind}:${item.identifier} — ${item.reason}`).slice(0, 4),
+    };
+  }
+  return {
+    angle: "citation_resolvability",
+    passed: true,
+    severity: "low",
+    finding: findings.length > 0
+      ? `${findings.length} identifier(s) are well-formed. Well-formedness is not existence: nothing was resolved or fetched.`
+      : "No checkable identifier was present in the answer.",
+    evidence: [],
+  };
 }
 
 function citationProbe(
@@ -405,7 +512,8 @@ function citationSignals(value: string): string[] {
     .slice(0, 12);
 }
 
-function arithmeticChecks(answer: string): ArithmeticCheck[] {
+function arithmeticChecks(rawAnswer: string): ArithmeticCheck[] {
+  const answer = foldNotation(rawAnswer);
   const checks: ArithmeticCheck[] = [];
   const occupied: Array<[number, number]> = [];
 
@@ -443,6 +551,15 @@ function arithmeticChecks(answer: string): ArithmeticCheck[] {
     const actual = parseNumber(match[4]);
     const operator = match[2]?.toLowerCase();
     if (left === undefined || right === undefined || actual === undefined || !operator) continue;
+    // Recompute integer +, - and * exactly. IEEE-754 doubles lose precision past 2^53,
+    // so "9007199254740993 + 2 = 9007199254740995" was reported as an arithmetic error.
+    const exact = exactIntegerResult(match[1], operator, match[3], match[4]);
+    if (exact !== undefined) {
+      checks.push({ expression, passed: exact, actual, start, end: start + expression.length,
+        ...(exact ? {} : { expected: left + right }) });
+      occupied.push([start, start + expression.length]);
+      continue;
+    }
     let expected: number | undefined;
     if (operator === "+") expected = left + right;
     else if (operator === "-") expected = left - right;
@@ -455,6 +572,35 @@ function arithmeticChecks(answer: string): ArithmeticCheck[] {
     }
   }
   return checks;
+}
+
+/** Integer literal with no fractional part, so BigInt can evaluate it without loss. */
+const INTEGER_LITERAL = /^[-+]?\d[\d,]*$/;
+
+function toBigInt(value: string | undefined): bigint | undefined {
+  if (!value || !INTEGER_LITERAL.test(value)) return undefined;
+  try {
+    return BigInt(value.replaceAll(",", ""));
+  } catch {
+    return undefined;
+  }
+}
+
+/** Exact verdict for integer +, - and *, or undefined when the form is not integral. */
+function exactIntegerResult(
+  leftText: string | undefined,
+  operator: string,
+  rightText: string | undefined,
+  actualText: string | undefined,
+): boolean | undefined {
+  const left = toBigInt(leftText);
+  const right = toBigInt(rightText);
+  const actual = toBigInt(actualText);
+  if (left === undefined || right === undefined || actual === undefined) return undefined;
+  if (operator === "+") return left + right === actual;
+  if (operator === "-") return left - right === actual;
+  if (["*", "×", "x"].includes(operator)) return left * right === actual;
+  return undefined;
 }
 
 function numericCheck(expression: string, expected: number, actual: number, start: number): ArithmeticCheck {
@@ -495,6 +641,7 @@ function arithmeticProbe(checks: ArithmeticCheck[]): RedTeamProbe {
 
 function findContradictions(claims: string[]): Contradiction[] {
   const results: Contradiction[] = [];
+  let pairs = 0;
   for (let leftIndex = 0; leftIndex < claims.length; leftIndex += 1) {
     const left = claims[leftIndex];
     if (!left) continue;
@@ -505,6 +652,7 @@ function findContradictions(claims: string[]): Contradiction[] {
         results.push({ left, right });
       }
       if (results.length >= 4) return results;
+      if ((pairs += 1) >= MAX_CONTRADICTION_PAIRS) return results;
     }
   }
   return results;
@@ -529,6 +677,7 @@ function numericContradiction(left: string, right: string): boolean {
   const rightFrame = numericFrame(right);
   if (!/[a-z]/.test(leftFrame) || leftFrame !== rightFrame) return false;
   if (leftNumbers.join("|") === rightNumbers.join("|")) return false;
+  if (differsAtEnumerator(left, right)) return false;
   return !comparesDistinctEntities(leftNumbers, rightNumbers);
 }
 
@@ -552,6 +701,49 @@ function numericContradiction(left: string, right: string): boolean {
  *   [4, 16]   vs [5, 24]    no shared anchor       -> comparison
  *   [2024,12] vs [2025,30]  no shared anchor       -> comparison
  */
+/**
+ * Closed class of label nouns that index an item rather than measure one. The
+ * discriminating feature is word order, not the noun alone: "Step 1" is a label followed
+ * by an index, while "5 minutes" is a quantity followed by a unit. Only the first form
+ * identifies *which* thing a claim is about.
+ */
+const ENUMERATOR_LABELS =
+  "step|stage|phase|chapter|section|part|item|figure|fig|table|appendix|annex|note|line|page|" +
+  "question|task|run|trial|sample|release|version|revision|build|sku|id|entry|record|row|column|" +
+  "level|tier|round|iteration|epoch|batch|finding|issue|ticket|case|example|option|method|variant|" +
+  "model|class|group|set|test|exercise|lesson|module|unit|day|week|attempt|slot|node|worker|shard";
+const ENUMERATOR_PATTERN = new RegExp(`\\b(${ENUMERATOR_LABELS})\\s+#?(\\d+)\\b`, "gi");
+
+/** Map of label noun to the indices it carries in this claim. */
+function enumeratorIndices(value: string): Map<string, Set<string>> {
+  const indices = new Map<string, Set<string>>();
+  for (const match of value.matchAll(ENUMERATOR_PATTERN)) {
+    const label = match[1]!.toLowerCase();
+    const existing = indices.get(label) ?? new Set<string>();
+    existing.add(match[2]!);
+    indices.set(label, existing);
+  }
+  return indices;
+}
+
+/**
+ * True when the two claims carry the same label with different indices, which means they
+ * describe different items. "Step 1 takes 5 minutes" and "Step 2 takes 5 minutes" share a
+ * numeric anchor (5) and an identical frame, so the anchor rule below treated them as a
+ * self-contradiction; they are two facts about two steps.
+ */
+function differsAtEnumerator(left: string, right: string): boolean {
+  const leftIndices = enumeratorIndices(left);
+  const rightIndices = enumeratorIndices(right);
+  for (const [label, leftValues] of leftIndices) {
+    const rightValues = rightIndices.get(label);
+    if (!rightValues) continue;
+    const shared = [...leftValues].some((value) => rightValues.has(value));
+    if (!shared) return true;
+  }
+  return false;
+}
+
 function comparesDistinctEntities(left: string[], right: string[]): boolean {
   if (left.length < 2 || right.length < 2) return false;
   const shared = new Set(left).size > 0 && left.some((value) => right.includes(value));
@@ -636,6 +828,22 @@ function scoreDimensions(probes: RedTeamProbe[]): Record<string, number> {
   };
 }
 
+/**
+ * Caller-supplied constitution rules are namespaced. A rule id arrives in the request
+ * body, so without this a caller can reuse a built-in id such as `lite-credentials`,
+ * overwrite its published evaluation, and make the audit record state that the built-in
+ * credential rule was satisfied when the credential probe actually failed. Namespacing
+ * makes that collision structurally impossible rather than merely discouraged.
+ */
+const RESERVED_RULE_PREFIX = "lite-";
+
+function callerRuleId(id: string): string {
+  // Only the reserved prefix is namespaced. A caller's own rule id is preserved, so
+  // legitimate callers still read their evaluations back under the id they supplied;
+  // an attempt to occupy a built-in id is neutralized and left visible in the record.
+  return id.startsWith(RESERVED_RULE_PREFIX) ? `caller:${id}` : id;
+}
+
 function constitution(probes: RedTeamProbe[], customRules: ConstitutionRule[]): TrustCard["constitution"] {
   const evaluation = (angle: string): "satisfied" | "violated" =>
     probes.find((probe) => probe.angle === angle)?.passed === false ? "violated" : "satisfied";
@@ -653,7 +861,7 @@ function constitution(probes: RedTeamProbe[], customRules: ConstitutionRule[]): 
       { id: "lite-credentials", requirement: "Do not release recognized credential material.", severity: "critical" },
       { id: "lite-dangerous-action", requirement: "Flag supported destructive or executable attack patterns.", severity: "high" },
       { id: "lite-network-boundary", requirement: "Reject unsafe schemes and private-network tool targets.", severity: "critical" },
-      ...customRules.map((rule) => ({ id: rule.id, requirement: rule.requirement, severity: rule.severity })),
+      ...customRules.map((rule) => ({ id: callerRuleId(rule.id), requirement: rule.requirement, severity: rule.severity })),
     ],
     evaluations: {
       "lite-scope": "satisfied",
@@ -668,7 +876,7 @@ function constitution(probes: RedTeamProbe[], customRules: ConstitutionRule[]): 
       "lite-credentials": evaluation("credential_exposure"),
       "lite-dangerous-action": evaluation("dangerous_action"),
       "lite-network-boundary": evaluation("network_boundary"),
-      ...Object.fromEntries(customRules.map((rule) => [rule.id, evaluation(`constitution:${rule.id}`)])),
+      ...Object.fromEntries(customRules.map((rule) => [callerRuleId(rule.id), evaluation(`constitution:${callerRuleId(rule.id)}`)])),
     },
   };
 }
@@ -683,39 +891,55 @@ function evaluateConstitution(input: VerificationInput, rules: ConstitutionRule[
     else if (rule.kind === "forbid_phrase") passed = !normalizedAnswer.includes(normalizedValue);
     else if (rule.kind === "require_citation") passed = citations.length > 0;
     else if (rule.kind === "forbid_absolute_certainty") passed = !CERTAINTY_PATTERN.test(input.answer);
-    else if (rule.kind === "allow_target") passed = Boolean(input.checkpoint?.target && targetMatches(input.checkpoint.target, normalizedValue));
-    else if (rule.kind === "forbid_target") passed = !input.checkpoint?.target || !targetMatches(input.checkpoint.target, normalizedValue);
+    else if (rule.kind === "allow_target") passed = Boolean(input.checkpoint?.target && targetMatchesValue(input.checkpoint.target, normalizedValue));
+    else if (rule.kind === "forbid_target") passed = !input.checkpoint?.target || !targetMatchesValue(input.checkpoint.target, normalizedValue);
     return {
-      angle: `constitution:${rule.id}`,
+      angle: `constitution:${callerRuleId(rule.id)}`,
       passed,
       severity: passed ? "low" : rule.severity,
-      finding: passed ? `Constitution rule ${rule.id} was satisfied.` : `Constitution rule ${rule.id} was violated: ${rule.requirement}`,
+      finding: passed
+        ? `Constitution rule ${callerRuleId(rule.id)} was satisfied.`
+        : `Constitution rule ${callerRuleId(rule.id)} was violated: ${rule.requirement}`,
       evidence: rule.value ? [rule.value] : rule.kind === "require_citation" ? citations.slice(0, 4) : [],
     };
   });
 }
 
-function securityText(value: string): string {
-  const cleaned = value.normalize("NFKC")
-    .replace(/[\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/g, "");
-  const normalized = cleaned
-    .replace(/[013457@$]/g, (character) => ({ "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s" }[character] ?? character));
-  const decoded: string[] = [];
-  for (const match of cleaned.matchAll(/(?:^|\s)([A-Za-z0-9+/]{16,512}={0,2})(?=\s|$|[.,;!?])/g)) {
-    try {
-      const candidate = Buffer.from(match[1] ?? "", "base64").toString("utf8");
-      const printable = [...candidate].filter((character) => character === "\n" || character === "\r" || character === "\t" || character >= " ").length;
-      if (candidate.length > 0 && printable / candidate.length > 0.9) decoded.push(candidate);
-    } catch {
-      // Invalid base64 remains ordinary submitted text.
-    }
-  }
-  return [normalized, ...decoded].join("\n");
-}
+/**
+ * Characters that are invisible or zero-width and can be inserted mid-token to break a
+ * pattern match without changing what a human or a model reads. `\p{Cf}` covers soft
+ * hyphen, the zero-width and bidi controls, word joiner, BOM and the tag block; the
+ * explicit additions are the combining grapheme joiner and the variation selectors,
+ * which are combining marks rather than format characters.
+ */
 
-function secretSignals(value: string): string[] {
-  return SECRET_PATTERNS.filter(([, pattern]) => pattern.test(value)).map(([name]) => name);
-}
+/**
+ * Script-confusable characters that render as Latin letters. This is a curated subset of
+ * the Unicode TR39 confusables table covering the Cyrillic and Greek homoglyphs used in
+ * practice, not the full table: folding here is a detection aid, and an unmapped
+ * confusable is a false negative, never a false positive.
+ */
+
+
+/** NFKC-fold and remove characters that carry no visible content. */
+
+
+
+/**
+ * Base64 payloads embedded anywhere, not only between whitespace. The previous boundary
+ * required surrounding whitespace, so quoting or bracketing a payload hid it entirely.
+ * Boundaries are now "not a base64 alphabet character", which no delimiter can satisfy.
+ */
+
+/** Text prepared for instruction-override and dangerous-action matching. */
+
+/**
+ * Text prepared for credential matching. Deliberately does NOT apply leetspeak or
+ * confusable folding: those rewrite the very characters a key is made of and would
+ * corrupt an otherwise matchable secret. Invisible-character stripping and NFKC are
+ * safe because neither removes a character a credential can contain.
+ */
+
 
 function relevanceProbe(question: string, answer: string): RedTeamProbe {
   const questionTokens = meaningfulTokens(question);
@@ -734,72 +958,66 @@ function relevanceProbe(question: string, answer: string): RedTeamProbe {
   };
 }
 
-function dangerousActionSignals(value: string): string[] {
-  // Keep the original digits for IP addresses and command arguments, while also
-  // testing the de-obfuscated representation used for leetspeak and hidden text.
-  const candidates = [value.normalize("NFKC"), securityText(value)];
-  return DANGEROUS_ACTION_PATTERNS
-    .filter(([, pattern]) => candidates.some((candidate) => pattern.test(candidate)))
-    .map(([name]) => name);
-}
 
-function networkBoundaryFinding(target: string | undefined): string | undefined {
-  if (!target) return undefined;
-  let parsed: URL;
-  try {
-    parsed = new URL(target);
-  } catch {
-    return /^[a-z][a-z0-9+.-]*:\/\//i.test(target) ? "Checkpoint target is not a valid URL." : undefined;
-  }
-  if (!["https:", "http:"].includes(parsed.protocol)) return `Checkpoint target uses the disallowed ${parsed.protocol} scheme.`;
-  if (parsed.username || parsed.password) return "Checkpoint target contains embedded credentials.";
-  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (host === "localhost" || host === "::" || host === "::1" || host.endsWith(".localhost") || isPrivateIpv4(host) || host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd")) {
-    return "Checkpoint target resolves syntactically to a loopback, link-local, or private-network address.";
-  }
-  return undefined;
-}
-
-function isPrivateIpv4(host: string): boolean {
-  const parts = host.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
-  return parts[0] === 10 || parts[0] === 127 || (parts[0] === 169 && parts[1] === 254) ||
-    (parts[0] === 172 && (parts[1] ?? 0) >= 16 && (parts[1] ?? 0) <= 31) ||
-    (parts[0] === 192 && parts[1] === 168) || parts[0] === 0;
-}
-
-function targetMatches(target: string, ruleValue: string): boolean {
-  const candidate = target.toLocaleLowerCase("en-US");
-  if (ruleValue.startsWith("*.")) {
-    const suffix = ruleValue.slice(1);
-    try {
-      return new URL(target).hostname.toLocaleLowerCase("en-US").endsWith(suffix);
-    } catch {
-      return candidate.endsWith(suffix);
-    }
-  }
-  return candidate === ruleValue;
-}
+/** Actions that release the output. Every other action withholds it. */
+const RELEASING_ACTIONS = new Set<ResponseAction>(["allow", "record"]);
 
 function governance(input: VerificationInput, verdict: TrustCard["verdict"]): NonNullable<TrustCard["governance"]> {
   const defaults = { trust: "allow", caution: "record", reject: "block" } as const;
-  const action = input.response_policy?.[verdict] ?? defaults[verdict];
+  const requested = input.response_policy?.[verdict] ?? defaults[verdict];
+
+  // A response policy travels in the request body, so it is caller-controlled input, not
+  // operator configuration. It may make the gate stricter; it must never make it weaker.
+  // Without this floor, `response_policy: {reject: "allow"}` walks a critical-severity
+  // credential leak straight through the enforcing gate, which defeats the gate entirely.
+  const downgradeRefused = verdict === "reject" && RELEASING_ACTIONS.has(requested);
+  const action: ResponseAction = downgradeRefused ? defaults.reject : requested;
+
   return {
     checkpoint: input.checkpoint ?? { id: "submitted-answer", type: "final_output" },
     constitution_version: input.constitution?.version ?? "glassbox-lite/builtin-v1",
-    response: { action, executed: false, rationale: `The configured response policy maps verdict ${verdict} to ${action}. GlassBox reports this action; the caller must enforce it.` },
+    response: {
+      action,
+      executed: false,
+      policy_downgrade_refused: downgradeRefused,
+      rationale: downgradeRefused
+        ? `The response policy requested ${requested} for verdict reject. A caller-supplied policy cannot release a rejected output, so the built-in floor ${defaults.reject} was applied instead.`
+        : `The configured response policy maps verdict ${verdict} to ${action}. GlassBox reports this action; the caller must enforce it.`,
+    },
   };
 }
 
-function verdictRationale(verdict: TrustCard["verdict"], failed: RedTeamProbe[]): string {
+/**
+ * Which failures are severe enough to reject rather than caution. Single source of truth:
+ * the verdict and the rationale previously applied two different versions of this rule, so
+ * the rationale named `dangerous_action` as a rejection reason at checkpoints where the
+ * gate had not in fact treated it as one.
+ */
+function isDecisive(probe: RedTeamProbe, checkpointType: string | undefined): boolean {
+  // A checksum failure is proven arithmetic, in the same class as a wrong sum, so it is
+  // decisive. A grammar failure is weaker evidence and only cautions.
+  if (probe.angle === "citation_resolvability") return probe.severity === "high";
+  // A tool call is an action about to happen, not a draft awaiting review, so every tool
+  // probe is decisive wherever it fires.
+  if (TOOL_PROBE_ANGLES.has(probe.angle)) return true;
+  if (["internal_contradiction", "arithmetic_sanity", "input_injection", "credential_exposure", "network_boundary"]
+    .includes(probe.angle)) return true;
+  if (probe.angle === "dangerous_action") {
+    // An undeclared checkpoint must not be a cheaper path through the gate. If the caller
+    // has not said which stage this is, assume the most consequential one and fail closed.
+    return checkpointType === undefined || ["agent_step", "tool_call"].includes(checkpointType);
+  }
+  return probe.angle.startsWith("constitution:") && ["high", "critical"].includes(probe.severity);
+}
+
+function verdictRationale(
+  verdict: TrustCard["verdict"],
+  failed: RedTeamProbe[],
+  decisive: RedTeamProbe[],
+): string {
   const caveat = "This is not a fact-check; external facts and citations remain unverified.";
   if (verdict === "reject") {
-    const reasons = failed
-      .filter((probe) => probe.angle === "internal_contradiction" || probe.angle === "arithmetic_sanity" ||
-        ["input_injection", "credential_exposure", "network_boundary"].includes(probe.angle) ||
-        probe.angle === "dangerous_action" ||
-        (probe.angle.startsWith("constitution:") && ["high", "critical"].includes(probe.severity)))
-      .map((probe) => probe.angle.replaceAll("_", " "));
+    const reasons = decisive.map((probe) => probe.angle.replaceAll("_", " "));
     return `Deterministic checks found rejection-level failures: ${reasons.join(", ")}. ${caveat}`;
   }
   if (verdict === "caution") {
@@ -811,6 +1029,7 @@ function verdictRationale(verdict: TrustCard["verdict"], failed: RedTeamProbe[])
 
 function inputsHash(input: VerificationInput): string {
   return crypto.createHash("sha256").update(JSON.stringify({
+    platform: input.platform,
     question: input.question,
     answer: input.answer,
     intents: input.intents ?? [],

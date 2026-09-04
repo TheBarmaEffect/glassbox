@@ -1,4 +1,4 @@
-import { PLATFORMS, type ConstitutionRule, type Platform, type ResponseAction, type VerificationInput } from "./types.js";
+import { PLATFORMS, type ConstitutionRule, type ToolDeclaration, type Platform, type ResponseAction, type VerificationInput } from "./types.js";
 
 export const MAX_QUESTION_CHARS = 6_000;
 export const MAX_ANSWER_CHARS = 12_000;
@@ -6,6 +6,11 @@ export const MAX_INTENTS = 8;
 export const MAX_INTENT_CHARS = 1_000;
 export const MAX_TOTAL_INTENT_CHARS = 4_000;
 export const MAX_CONSTITUTION_RULES = 32;
+export const MAX_TOOL_NAME_CHARS = 200;
+export const MAX_TOOL_ARGUMENT_CHARS = 8_000;
+export const MAX_TOOL_DESCRIPTION_CHARS = 4_000;
+export const MAX_TOOL_PINS = 64;
+export const MAX_ALLOWED_TOOLS = 128;
 
 export class InputError extends Error {}
 
@@ -36,6 +41,9 @@ export function normalizeInput(input: VerificationInput): VerificationInput {
   const checkpoint = normalizeCheckpoint(input.checkpoint);
   const constitution = normalizeConstitution(input.constitution);
   const responsePolicy = normalizeResponsePolicy(input.response_policy);
+  const tool = normalizeTool(input.tool);
+  const toolPins = normalizeToolPins(input.tool_pins);
+  const allowedTools = normalizeAllowedTools(input.allowed_tools);
   return {
     platform: input.platform,
     question: clean(input.question, MAX_QUESTION_CHARS, "Question"),
@@ -44,7 +52,97 @@ export function normalizeInput(input: VerificationInput): VerificationInput {
     ...(checkpoint ? { checkpoint } : {}),
     ...(constitution ? { constitution } : {}),
     ...(responsePolicy ? { response_policy: responsePolicy } : {}),
+    ...(tool ? { tool } : {}),
+    ...(toolPins ? { tool_pins: toolPins } : {}),
+    ...(allowedTools ? { allowed_tools: allowedTools } : {}),
   };
+}
+
+/**
+ * Tool fields are allowlisted and bounded like every other input. They are validated here
+ * rather than in the verifier because an unvalidated field that reaches the verifier and
+ * is silently dropped is the failure mode that already cost this codebase once: the
+ * checkpoint, constitution and response-policy fields were accepted by the API and
+ * discarded before verification, so callers believed governance was applied when it was not.
+ */
+function normalizeTool(value: VerificationInput["tool"]): VerificationInput["tool"] {
+  if (!value) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) throw new InputError("Tool must be an object.");
+  if (typeof value.tool !== "string") throw new InputError("Tool name must be a string.");
+  const name = clean(value.tool, MAX_TOOL_NAME_CHARS, "Tool name");
+
+  let args: Record<string, unknown> | undefined;
+  if (value.arguments !== undefined) {
+    if (typeof value.arguments !== "object" || value.arguments === null || Array.isArray(value.arguments)) {
+      throw new InputError("Tool arguments must be a JSON object.");
+    }
+    let serialized: string;
+    try {
+      serialized = JSON.stringify(value.arguments);
+    } catch {
+      throw new InputError("Tool arguments must be JSON-serializable.");
+    }
+    if (serialized.length > MAX_TOOL_ARGUMENT_CHARS) {
+      throw new InputError(`Tool arguments are too long (${serialized.length}/${MAX_TOOL_ARGUMENT_CHARS} characters).`);
+    }
+    args = value.arguments;
+  }
+
+  let declaration: ToolDeclaration | undefined;
+  if (value.declaration !== undefined) {
+    const raw = value.declaration;
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+      throw new InputError("Tool declaration must be an object.");
+    }
+    if (typeof raw.name !== "string") throw new InputError("Tool declaration name must be a string.");
+    declaration = {
+      name: clean(raw.name, MAX_TOOL_NAME_CHARS, "Tool declaration name"),
+      ...(raw.description !== undefined
+        ? { description: clean(String(raw.description), MAX_TOOL_DESCRIPTION_CHARS, "Tool description") }
+        : {}),
+      ...(raw.input_schema !== undefined ? { input_schema: raw.input_schema } : {}),
+    };
+  }
+
+  return { tool: name, ...(args ? { arguments: args } : {}), ...(declaration ? { declaration } : {}) };
+}
+
+function normalizeToolPins(value: VerificationInput["tool_pins"]): VerificationInput["tool_pins"] {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new InputError("Tool pins must be an array.");
+  if (value.length > MAX_TOOL_PINS) throw new InputError(`At most ${MAX_TOOL_PINS} tool pins may be supplied.`);
+  return value.map((pin) => {
+    if (!pin || typeof pin !== "object" || Array.isArray(pin)) throw new InputError("Every tool pin must be an object.");
+    if (typeof pin.tool !== "string" || typeof pin.declaration_hash !== "string") {
+      throw new InputError("A tool pin needs a tool name and a declaration hash.");
+    }
+    if (!/^[a-f0-9]{64}$/.test(pin.declaration_hash)) {
+      throw new InputError("A tool pin declaration hash must be a SHA-256 hex digest.");
+    }
+    const components = pin.component_hashes;
+    if (components !== undefined) {
+      const valid = components && typeof components === "object" && !Array.isArray(components) &&
+        (["name", "description", "schema"] as const).every((key) => /^[a-f0-9]{64}$/.test(String(components[key])));
+      if (!valid) throw new InputError("Tool pin component hashes must be SHA-256 hex digests.");
+    }
+    return {
+      tool: clean(pin.tool, MAX_TOOL_NAME_CHARS, "Tool pin name"),
+      declaration_hash: pin.declaration_hash,
+      ...(components ? { component_hashes: components } : {}),
+      ...(pin.pinned_at ? { pinned_at: clean(String(pin.pinned_at), 64, "Tool pin timestamp") } : {}),
+    };
+  });
+}
+
+function normalizeAllowedTools(value: VerificationInput["allowed_tools"]): VerificationInput["allowed_tools"] {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new InputError("Allowed tools must be an array.");
+  if (value.length > MAX_ALLOWED_TOOLS) throw new InputError(`At most ${MAX_ALLOWED_TOOLS} allowed tools may be supplied.`);
+  // An empty array is meaningful: it declares that no tool is permitted.
+  return value.map((name) => {
+    if (typeof name !== "string") throw new InputError("Every allowed tool must be a string.");
+    return clean(name, MAX_TOOL_NAME_CHARS, "Allowed tool name");
+  });
 }
 
 function normalizeCheckpoint(value: VerificationInput["checkpoint"]): VerificationInput["checkpoint"] {
