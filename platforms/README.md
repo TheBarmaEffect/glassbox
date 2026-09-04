@@ -128,12 +128,12 @@ Discord / Slack / Telegram / GitHub / Reddit / ChatGPT / Claude / API
 |---|---|---|
 | `src/lite.ts` | ✅ | The deterministic verifier. Claim segmentation, allowlisted arithmetic, lexical contradiction, certainty and specificity vocabularies, relevance, injection and credential signals, fact-check scope, constitution rules. |
 | `src/signals.ts` | ✅ | The shared detection primitives — credential formats, dangerous execution patterns, injection signatures. Shared **on purpose**, so answer scanning and tool-argument scanning cannot drift apart and silently stop covering one surface. |
-| `src/citation.ts` | ✅ (see skew) | Offline citation screening. See below. |
+| `src/citation.ts` | ✅ | Offline citation screening. See below. |
 | `src/toolcall.ts` | ✅ | Tool-invocation assurance. See below. |
 | `src/metrics.ts` | ✅ | Content-free aggregate counters. See below. |
 | `src/canonical.ts` | ✅ | Canonical JSON and digests. Underpins determinism. |
 | `src/trajectory.ts` | ❌ **not wired** | Append-only tamper-evident record chain: Merkle tree, RFC 6962 domain-separated leaf/interior hashing, per-record inclusion proofs, signed tree head, resume-from-hashes. Implemented and tested; reachable from **no endpoint**. The `POST /api/v1/trajectory/replay` and `GET /api/v1/trajectory/pubkey` routes its own header describes **do not exist**. |
-| `src/attribution.ts` | ❌ **not wired, deliberately** | Computed attribution grounding — whether a "research shows"-style attribution carries a locatable support span. Held back because GBSA-1's held-out split is spent for the citation and certainty probes, so no recall figure for it could be quoted honestly. |
+| `src/attribution.ts` | ❌ **not wired, deliberately** | Computed attribution grounding — whether a "research shows"-style attribution carries a locatable support span. Held back because GBSA-1's held-out split is spent for the probes it would refine, so no recall figure for it could be quoted honestly. GBSA-2 does not yet carry an attribution stratum. |
 
 ### Tool-invocation assurance — `src/toolcall.ts`
 
@@ -181,16 +181,28 @@ Wired as the `citation_resolvability` probe. Decides a subset of citation fabric
 digit*, never *the citation is fabricated*: a transposed digit and an OCR error produce the
 same failure, and arithmetic cannot separate mistranscription from invention.
 
-**Measured: 0 firings across all 187 GBSA-1 items.** That bounds false positives on a corpus
-that contains **no fabricated-identifier stratum** — so **recall is unmeasured**, and it is
-bounded above by identifier presence. A fabricated reference with no identifier, or one
-whose invented identifier happens to carry a valid check digit, is invisible to this probe.
+**False-positive freedom is proved, not observed.** 18,000 valid identifiers were generated
+across nine schemes — with each check character computed by a *second, independently
+transcribed* implementation of the standard, so the corpus is not valid by definition — and
+**none was reported invalid**. 307,148 single-character perturbations were detected at
+**100.000%**. Adjacent-transposition rates are *predicted from each scheme's own check
+equation* and asserted against measurement: 100% for the mod-11 schemes, 88.9% for mod-10.
+The mod-10 shortfall is blindness to digits differing by 5, which is a property of the
+standard rather than a defect here.
 
-> **Deployment skew, verified 2026-09-04.** The live instance's `/api/v1/capabilities`
-> advertises **13** deterministic probes and does **not** list `citation_resolvability`;
-> this repository's handler lists 14. The six tool-invocation probes *are* live. Until the
-> gateway is redeployed, treat offline citation screening as implemented and tested but
-> **deployed and verified live on 2026-09-04**.
+**Recall is now measured.** GBSA-1 contains no fabricated-identifier stratum, so it could
+only ever bound false positives. GBSA-2 adds one, and on it `citation_resolvability` scores
+**precision 1.000, recall 0.923** — 1.000 among in-scope items. The single miss is
+pre-registered `in_scope: false`: it carries no identifier at all.
+
+Recall remains bounded above by identifier presence. A fabricated reference with no
+identifier, or one whose invented identifier happens to carry a valid check digit, is
+invisible to this probe — and a fabricated citation with no identifier still returns
+`trust`. That is a measured limitation, not a hypothetical one.
+
+> Live since 2026-09-04: `/api/v1/capabilities` advertises **14** deterministic probes
+> including `citation_resolvability`, and the six tool-invocation probes. Verified against
+> the deployed instance, name-for-name against `src/server.ts`, by `npm run test:live`.
 
 ## Transparency endpoints
 
