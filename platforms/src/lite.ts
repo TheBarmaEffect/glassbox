@@ -925,6 +925,11 @@ function isNegated(value: string): boolean {
  */
 function stripOnce(token: string): string {
   if (token.length > 5 && token.endsWith("ied")) return `${token.slice(0, -3)}y`;
+  // Mirror of the "ied" rule above. Without it "retries" strips to "retri" while "retry"
+  // stays "retry", so an inflected pair lands in different buckets and a plain
+  // contradiction between them is invisible. Must precede the "es" rule, which would
+  // otherwise consume the "es" and leave the "i".
+  if (token.length > 4 && token.endsWith("ies")) return `${token.slice(0, -3)}y`;
   if (token.length > 5 && token.endsWith("ing")) return token.slice(0, -3);
   if (token.length > 4 && token.endsWith("ed")) return token.slice(0, -2);
   if (token.length > 4 && token.endsWith("es")) return token.slice(0, -2);
