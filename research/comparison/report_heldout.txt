@@ -1,0 +1,72 @@
+
+====================================================================================================
+PROTOCOL A — ALIGNED (oracle-routed, clean controls excluded)   dataset=heldout
+====================================================================================================
+system              TP  FP  FN  TN    prec     rec      F1   F1 95% CI (bootstrap)
+glassbox_lite       24   0  12  33   1.000   0.667   0.800   [0.667, 0.899]
+keyword_informed     6   2  30  31   0.750   0.167   0.273   [0.100, 0.440]
+keyword_blind        2   1  34  32   0.667   0.056   0.103   [0.000, 0.244]
+naive_computed      19   0  17  33   1.000   0.528   0.691   [0.528, 0.820]
+nemo_injection       0   0  36  33    n/a    0.000   0.000   [0.000, 0.000]
+presidio             0   0  36  33    n/a    0.000   0.000   [0.000, 0.000]
+length_heuristic    24  29  12   4   0.453   0.667   0.539   [0.405, 0.660]
+random_p            18   9  18  24   0.667   0.500   0.571   [0.408, 0.706]
+always_flag         36  33   0   0   0.522   1.000   0.686   [0.577, 0.779]
+never_flag           0   0  36  33    n/a    0.000   0.000   [0.000, 0.000]
+
+--- Protocol A, per axis (recall; precision in parentheses) ---
+system                        arith           contra             cert             cite              inj
+glassbox_lite         1.000 (1.000)    1.000 (1.000)    0.000 ( n/a )    0.333 (1.000)    0.000 ( n/a )
+keyword_informed      0.000 ( n/a )    0.000 ( n/a )    0.750 (1.000)    0.167 (1.000)    0.500 (0.500)
+keyword_blind         0.000 ( n/a )    0.000 ( n/a )    0.250 (1.000)    0.000 ( n/a )    0.250 (0.500)
+naive_computed        1.000 (1.000)    0.500 (1.000)    0.000 ( n/a )    0.000 ( n/a )    0.000 ( n/a )
+nemo_injection        0.000 ( n/a )    0.000 ( n/a )    0.000 ( n/a )    0.000 ( n/a )    0.000 ( n/a )
+presidio              0.000 ( n/a )    0.000 ( n/a )    0.000 ( n/a )    0.000 ( n/a )    0.000 ( n/a )
+length_heuristic      1.000 (0.500)    1.000 (0.545)    0.000 (0.000)    0.167 (0.333)    0.250 (0.250)
+random_p              0.500 (0.615)    0.500 (0.500)    0.750 (1.000)    0.333 (0.667)    0.500 (1.000)
+always_flag           1.000 (0.500)    1.000 (0.500)    1.000 (0.500)    1.000 (0.667)    1.000 (0.500)
+never_flag            0.000 ( n/a )    0.000 ( n/a )    0.000 ( n/a )    0.000 ( n/a )    0.000 ( n/a )
+
+====================================================================================================
+PROTOCOL B — ANY-FLAG (deployment-realistic, clean controls INCLUDED)
+====================================================================================================
+system              TP  FP  FN  TN    prec     rec      F1   F1 95% CI (bootstrap)
+glassbox_lite       24   3  12  36   0.889   0.667   0.762   [0.630, 0.868]
+keyword_informed     6   2  30  37   0.750   0.167   0.273   [0.100, 0.444]
+keyword_blind        2   1  34  38   0.667   0.056   0.103   [0.000, 0.242]
+naive_computed      19   0  17  39   1.000   0.528   0.691   [0.533, 0.815]
+nemo_injection       0   0  36  39    n/a    0.000   0.000   [0.000, 0.000]
+presidio             4   4  32  35   0.500   0.111   0.182   [0.044, 0.333]
+length_heuristic    24  33  12   6   0.421   0.667   0.516   [0.382, 0.633]
+random_p            18  12  18  27   0.600   0.500   0.545   [0.392, 0.677]
+always_flag         36  39   0   0   0.480   1.000   0.649   [0.544, 0.750]
+never_flag           0   0  36  39    n/a    0.000   0.000   [0.000, 0.000]
+
+--- False positives on benign clean controls (Protocol B) ---
+  glassbox_lite      3/6
+  keyword_informed   0/6
+  keyword_blind      0/6
+  naive_computed     0/6
+  nemo_injection     0/6
+  presidio           0/6
+  length_heuristic   4/6
+  random_p           3/6
+  always_flag        6/6
+  never_flag         0/6
+
+====================================================================================================
+COST AXES
+====================================================================================================
+system               net   key   wts   ms/item    p95 ms  deterministic
+glassbox_lite         no    no    no    0.1594    0.2968  yes
+keyword_informed      no    no    no    0.0466    0.0503  yes
+keyword_blind         no    no    no    0.0439    0.0466  yes
+naive_computed        no    no    no    0.0025    0.0068  yes
+nemo_injection        no    no    no    0.3201    0.4077  yes
+presidio              no    no   yes    3.1341    2.8373  yes
+length_heuristic      no    no    no    0.0012    0.0018  yes
+random_p              no    no    no    0.0006    0.0007  yes
+always_flag           no    no    no    0.0001    0.0001  yes
+never_flag            no    no    no    0.0001    0.0001  yes
+
+wrote scores_heldout.json

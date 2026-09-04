@@ -1,0 +1,877 @@
+{
+  "dataset": "dataset",
+  "bootstrap": 10000,
+  "seed": 20260904,
+  "protocols": {
+    "aligned": {
+      "glassbox_lite": {
+        "tp": 51,
+        "fp": 0,
+        "fn": 7,
+        "tn": 46,
+        "precision": 1.0,
+        "recall": 0.8793103448275862,
+        "f1": 0.9357798165137614,
+        "f1_ci": [
+          0.8817204301075269,
+          0.9791666666666666
+        ]
+      },
+      "keyword_informed": {
+        "tp": 16,
+        "fp": 2,
+        "fn": 42,
+        "tn": 44,
+        "precision": 0.8888888888888888,
+        "recall": 0.27586206896551724,
+        "f1": 0.42105263157894735,
+        "f1_ci": [
+          0.273972602739726,
+          0.5542168674698796
+        ]
+      },
+      "keyword_blind": {
+        "tp": 8,
+        "fp": 2,
+        "fn": 50,
+        "tn": 44,
+        "precision": 0.8,
+        "recall": 0.13793103448275862,
+        "f1": 0.2352941176470588,
+        "f1_ci": [
+          0.09999999999999999,
+          0.3684210526315789
+        ]
+      },
+      "naive_computed": {
+        "tp": 29,
+        "fp": 0,
+        "fn": 29,
+        "tn": 46,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "f1_ci": [
+          0.5428571428571428,
+          0.7692307692307693
+        ]
+      },
+      "nemo_injection": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 58,
+        "tn": 46,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f1_ci": [
+          0.0,
+          0.0
+        ]
+      },
+      "presidio": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 58,
+        "tn": 46,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f1_ci": [
+          0.0,
+          0.0
+        ]
+      },
+      "length_heuristic": {
+        "tp": 43,
+        "fp": 44,
+        "fn": 15,
+        "tn": 2,
+        "precision": 0.4942528735632184,
+        "recall": 0.7413793103448276,
+        "f1": 0.5931034482758621,
+        "f1_ci": [
+          0.4925373134328358,
+          0.6797385620915033
+        ]
+      },
+      "random_p": {
+        "tp": 34,
+        "fp": 21,
+        "fn": 24,
+        "tn": 25,
+        "precision": 0.6181818181818182,
+        "recall": 0.5862068965517241,
+        "f1": 0.6017699115044246,
+        "f1_ci": [
+          0.48739495798319327,
+          0.7
+        ]
+      },
+      "always_flag": {
+        "tp": 58,
+        "fp": 46,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.5576923076923077,
+        "recall": 1.0,
+        "f1": 0.7160493827160493,
+        "f1_ci": [
+          0.631578947368421,
+          0.7906976744186047
+        ]
+      },
+      "never_flag": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 58,
+        "tn": 46,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f1_ci": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "any_flag": {
+      "glassbox_lite": {
+        "tp": 52,
+        "fp": 3,
+        "fn": 6,
+        "tn": 51,
+        "precision": 0.9454545454545454,
+        "recall": 0.896551724137931,
+        "f1": 0.920353982300885,
+        "f1_ci": [
+          0.8627450980392156,
+          0.9661016949152543
+        ]
+      },
+      "keyword_informed": {
+        "tp": 17,
+        "fp": 2,
+        "fn": 41,
+        "tn": 52,
+        "precision": 0.8947368421052632,
+        "recall": 0.29310344827586204,
+        "f1": 0.44155844155844154,
+        "f1_ci": [
+          0.29850746268656714,
+          0.5747126436781608
+        ]
+      },
+      "keyword_blind": {
+        "tp": 9,
+        "fp": 2,
+        "fn": 49,
+        "tn": 52,
+        "precision": 0.8181818181818182,
+        "recall": 0.15517241379310345,
+        "f1": 0.26086956521739135,
+        "f1_ci": [
+          0.12307692307692308,
+          0.39473684210526316
+        ]
+      },
+      "naive_computed": {
+        "tp": 29,
+        "fp": 0,
+        "fn": 29,
+        "tn": 54,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "f1_ci": [
+          0.5405405405405406,
+          0.7710843373493976
+        ]
+      },
+      "nemo_injection": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 58,
+        "tn": 54,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f1_ci": [
+          0.0,
+          0.0
+        ]
+      },
+      "presidio": {
+        "tp": 3,
+        "fp": 5,
+        "fn": 55,
+        "tn": 49,
+        "precision": 0.375,
+        "recall": 0.05172413793103448,
+        "f1": 0.09090909090909091,
+        "f1_ci": [
+          0.0,
+          0.1904761904761905
+        ]
+      },
+      "length_heuristic": {
+        "tp": 43,
+        "fp": 52,
+        "fn": 15,
+        "tn": 2,
+        "precision": 0.45263157894736844,
+        "recall": 0.7413793103448276,
+        "f1": 0.5620915032679739,
+        "f1_ci": [
+          0.463768115942029,
+          0.6503067484662577
+        ]
+      },
+      "random_p": {
+        "tp": 34,
+        "fp": 24,
+        "fn": 24,
+        "tn": 30,
+        "precision": 0.5862068965517241,
+        "recall": 0.5862068965517241,
+        "f1": 0.5862068965517241,
+        "f1_ci": [
+          0.4716981132075472,
+          0.6857142857142857
+        ]
+      },
+      "always_flag": {
+        "tp": 58,
+        "fp": 54,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.5178571428571429,
+        "recall": 1.0,
+        "f1": 0.6823529411764707,
+        "f1_ci": [
+          0.6,
+          0.7555555555555554
+        ]
+      },
+      "never_flag": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 58,
+        "tn": 54,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f1_ci": [
+          0.0,
+          0.0
+        ]
+      }
+    }
+  },
+  "per_axis_aligned": {
+    "glassbox_lite": {
+      "arith": {
+        "tp": 25,
+        "fp": 0,
+        "fn": 3,
+        "tn": 24,
+        "precision": 1.0,
+        "recall": 0.8928571428571429,
+        "f1": 0.9433962264150945
+      },
+      "contra": {
+        "tp": 8,
+        "fp": 0,
+        "fn": 4,
+        "tn": 8,
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8
+      },
+      "cert": {
+        "tp": 6,
+        "fp": 0,
+        "fn": 0,
+        "tn": 6,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "cite": {
+        "tp": 7,
+        "fp": 0,
+        "fn": 0,
+        "tn": 3,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "inj": {
+        "tp": 5,
+        "fp": 0,
+        "fn": 0,
+        "tn": 5,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      }
+    },
+    "keyword_informed": {
+      "arith": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 28,
+        "tn": 24,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "contra": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 12,
+        "tn": 8,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cert": {
+        "tp": 6,
+        "fp": 1,
+        "fn": 0,
+        "tn": 5,
+        "precision": 0.8571428571428571,
+        "recall": 1.0,
+        "f1": 0.923076923076923
+      },
+      "cite": {
+        "tp": 5,
+        "fp": 0,
+        "fn": 2,
+        "tn": 3,
+        "precision": 1.0,
+        "recall": 0.7142857142857143,
+        "f1": 0.8333333333333333
+      },
+      "inj": {
+        "tp": 5,
+        "fp": 1,
+        "fn": 0,
+        "tn": 4,
+        "precision": 0.8333333333333334,
+        "recall": 1.0,
+        "f1": 0.9090909090909091
+      }
+    },
+    "keyword_blind": {
+      "arith": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 28,
+        "tn": 24,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "contra": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 12,
+        "tn": 8,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cert": {
+        "tp": 5,
+        "fp": 1,
+        "fn": 1,
+        "tn": 5,
+        "precision": 0.8333333333333334,
+        "recall": 0.8333333333333334,
+        "f1": 0.8333333333333334
+      },
+      "cite": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 6,
+        "tn": 3,
+        "precision": 1.0,
+        "recall": 0.14285714285714285,
+        "f1": 0.25
+      },
+      "inj": {
+        "tp": 2,
+        "fp": 1,
+        "fn": 3,
+        "tn": 4,
+        "precision": 0.6666666666666666,
+        "recall": 0.4,
+        "f1": 0.5
+      }
+    },
+    "naive_computed": {
+      "arith": {
+        "tp": 25,
+        "fp": 0,
+        "fn": 3,
+        "tn": 24,
+        "precision": 1.0,
+        "recall": 0.8928571428571429,
+        "f1": 0.9433962264150945
+      },
+      "contra": {
+        "tp": 4,
+        "fp": 0,
+        "fn": 8,
+        "tn": 8,
+        "precision": 1.0,
+        "recall": 0.3333333333333333,
+        "f1": 0.5
+      },
+      "cert": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 6,
+        "tn": 6,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cite": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 7,
+        "tn": 3,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "inj": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 5,
+        "tn": 5,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "nemo_injection": {
+      "arith": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 28,
+        "tn": 24,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "contra": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 12,
+        "tn": 8,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cert": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 6,
+        "tn": 6,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cite": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 7,
+        "tn": 3,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "inj": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 5,
+        "tn": 5,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "presidio": {
+      "arith": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 28,
+        "tn": 24,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "contra": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 12,
+        "tn": 8,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cert": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 6,
+        "tn": 6,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cite": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 7,
+        "tn": 3,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "inj": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 5,
+        "tn": 5,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "length_heuristic": {
+      "arith": {
+        "tp": 28,
+        "fp": 24,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.5384615384615384,
+        "recall": 1.0,
+        "f1": 0.7000000000000001
+      },
+      "contra": {
+        "tp": 8,
+        "fp": 7,
+        "fn": 4,
+        "tn": 1,
+        "precision": 0.5333333333333333,
+        "recall": 0.6666666666666666,
+        "f1": 0.5925925925925926
+      },
+      "cert": {
+        "tp": 1,
+        "fp": 6,
+        "fn": 5,
+        "tn": 0,
+        "precision": 0.14285714285714285,
+        "recall": 0.16666666666666666,
+        "f1": 0.15384615384615383
+      },
+      "cite": {
+        "tp": 2,
+        "fp": 3,
+        "fn": 5,
+        "tn": 0,
+        "precision": 0.4,
+        "recall": 0.2857142857142857,
+        "f1": 0.3333333333333333
+      },
+      "inj": {
+        "tp": 4,
+        "fp": 4,
+        "fn": 1,
+        "tn": 1,
+        "precision": 0.5,
+        "recall": 0.8,
+        "f1": 0.6153846153846154
+      }
+    },
+    "random_p": {
+      "arith": {
+        "tp": 17,
+        "fp": 11,
+        "fn": 11,
+        "tn": 13,
+        "precision": 0.6071428571428571,
+        "recall": 0.6071428571428571,
+        "f1": 0.6071428571428571
+      },
+      "contra": {
+        "tp": 9,
+        "fp": 5,
+        "fn": 3,
+        "tn": 3,
+        "precision": 0.6428571428571429,
+        "recall": 0.75,
+        "f1": 0.6923076923076924
+      },
+      "cert": {
+        "tp": 3,
+        "fp": 1,
+        "fn": 3,
+        "tn": 5,
+        "precision": 0.75,
+        "recall": 0.5,
+        "f1": 0.6
+      },
+      "cite": {
+        "tp": 4,
+        "fp": 2,
+        "fn": 3,
+        "tn": 1,
+        "precision": 0.6666666666666666,
+        "recall": 0.5714285714285714,
+        "f1": 0.6153846153846153
+      },
+      "inj": {
+        "tp": 1,
+        "fp": 2,
+        "fn": 4,
+        "tn": 3,
+        "precision": 0.3333333333333333,
+        "recall": 0.2,
+        "f1": 0.25
+      }
+    },
+    "always_flag": {
+      "arith": {
+        "tp": 28,
+        "fp": 24,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.5384615384615384,
+        "recall": 1.0,
+        "f1": 0.7000000000000001
+      },
+      "contra": {
+        "tp": 12,
+        "fp": 8,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.6,
+        "recall": 1.0,
+        "f1": 0.7499999999999999
+      },
+      "cert": {
+        "tp": 6,
+        "fp": 6,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666
+      },
+      "cite": {
+        "tp": 7,
+        "fp": 3,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.7,
+        "recall": 1.0,
+        "f1": 0.8235294117647058
+      },
+      "inj": {
+        "tp": 5,
+        "fp": 5,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666
+      }
+    },
+    "never_flag": {
+      "arith": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 28,
+        "tn": 24,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "contra": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 12,
+        "tn": 8,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cert": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 6,
+        "tn": 6,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cite": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 7,
+        "tn": 3,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "inj": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 5,
+        "tn": 5,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    }
+  },
+  "clean_controls": {
+    "glassbox_lite": {
+      "fp": 0,
+      "n": 8
+    },
+    "keyword_informed": {
+      "fp": 0,
+      "n": 8
+    },
+    "keyword_blind": {
+      "fp": 0,
+      "n": 8
+    },
+    "naive_computed": {
+      "fp": 0,
+      "n": 8
+    },
+    "nemo_injection": {
+      "fp": 0,
+      "n": 8
+    },
+    "presidio": {
+      "fp": 2,
+      "n": 8
+    },
+    "length_heuristic": {
+      "fp": 8,
+      "n": 8
+    },
+    "random_p": {
+      "fp": 3,
+      "n": 8
+    },
+    "always_flag": {
+      "fp": 8,
+      "n": 8
+    },
+    "never_flag": {
+      "fp": 0,
+      "n": 8
+    }
+  },
+  "cost_axes": {
+    "glassbox_lite": {
+      "install": "npm ci && npm run build",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.1143,
+      "ms_p95": 0.1373,
+      "deterministic": "yes"
+    },
+    "keyword_informed": {
+      "install": "none",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.0461,
+      "ms_p95": 0.0511,
+      "deterministic": "yes"
+    },
+    "keyword_blind": {
+      "install": "none",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.0443,
+      "ms_p95": 0.048,
+      "deterministic": "yes"
+    },
+    "naive_computed": {
+      "install": "none",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.0032,
+      "ms_p95": 0.0061,
+      "deterministic": "yes"
+    },
+    "nemo_injection": {
+      "install": "pip install nemoguardrails yara-python",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.2985,
+      "ms_p95": 0.315,
+      "deterministic": "yes"
+    },
+    "presidio": {
+      "install": "pip install presidio-analyzer spacy + en_core_web_lg (~590MB)",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": true,
+      "ms_mean": 2.944,
+      "ms_p95": 2.9712,
+      "deterministic": "yes"
+    },
+    "length_heuristic": {
+      "install": "none",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.0012,
+      "ms_p95": 0.0018,
+      "deterministic": "yes"
+    },
+    "random_p": {
+      "install": "none",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.0007,
+      "ms_p95": 0.0007,
+      "deterministic": "yes"
+    },
+    "always_flag": {
+      "install": "none",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.0001,
+      "ms_p95": 0.0002,
+      "deterministic": "yes"
+    },
+    "never_flag": {
+      "install": "none",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.0001,
+      "ms_p95": 0.0001,
+      "deterministic": "yes"
+    }
+  }
+}

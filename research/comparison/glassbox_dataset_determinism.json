@@ -1,0 +1,8 @@
+{
+  "dataset": "dataset.jsonl",
+  "repeats": 1,
+  "identical": true,
+  "digests": [
+    "bb438555dcbad9702035554739ca2b13515f0054eee46fdc717f88a016b973f2"
+  ]
+}

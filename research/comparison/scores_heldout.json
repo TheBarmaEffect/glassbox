@@ -1,0 +1,877 @@
+{
+  "dataset": "heldout",
+  "bootstrap": 10000,
+  "seed": 20260904,
+  "protocols": {
+    "aligned": {
+      "glassbox_lite": {
+        "tp": 24,
+        "fp": 0,
+        "fn": 12,
+        "tn": 33,
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "f1_ci": [
+          0.6666666666666666,
+          0.898550724637681
+        ]
+      },
+      "keyword_informed": {
+        "tp": 6,
+        "fp": 2,
+        "fn": 30,
+        "tn": 31,
+        "precision": 0.75,
+        "recall": 0.16666666666666666,
+        "f1": 0.27272727272727276,
+        "f1_ci": [
+          0.1,
+          0.44000000000000006
+        ]
+      },
+      "keyword_blind": {
+        "tp": 2,
+        "fp": 1,
+        "fn": 34,
+        "tn": 32,
+        "precision": 0.6666666666666666,
+        "recall": 0.05555555555555555,
+        "f1": 0.10256410256410256,
+        "f1_ci": [
+          0.0,
+          0.2439024390243902
+        ]
+      },
+      "naive_computed": {
+        "tp": 19,
+        "fp": 0,
+        "fn": 17,
+        "tn": 33,
+        "precision": 1.0,
+        "recall": 0.5277777777777778,
+        "f1": 0.6909090909090909,
+        "f1_ci": [
+          0.5283018867924528,
+          0.819672131147541
+        ]
+      },
+      "nemo_injection": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 36,
+        "tn": 33,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f1_ci": [
+          0.0,
+          0.0
+        ]
+      },
+      "presidio": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 36,
+        "tn": 33,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f1_ci": [
+          0.0,
+          0.0
+        ]
+      },
+      "length_heuristic": {
+        "tp": 24,
+        "fp": 29,
+        "fn": 12,
+        "tn": 4,
+        "precision": 0.4528301886792453,
+        "recall": 0.6666666666666666,
+        "f1": 0.5393258426966292,
+        "f1_ci": [
+          0.4050632911392405,
+          0.6595744680851063
+        ]
+      },
+      "random_p": {
+        "tp": 18,
+        "fp": 9,
+        "fn": 18,
+        "tn": 24,
+        "precision": 0.6666666666666666,
+        "recall": 0.5,
+        "f1": 0.5714285714285715,
+        "f1_ci": [
+          0.40816326530612246,
+          0.7058823529411765
+        ]
+      },
+      "always_flag": {
+        "tp": 36,
+        "fp": 33,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.5217391304347826,
+        "recall": 1.0,
+        "f1": 0.6857142857142856,
+        "f1_ci": [
+          0.577319587628866,
+          0.7787610619469026
+        ]
+      },
+      "never_flag": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 36,
+        "tn": 33,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f1_ci": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "any_flag": {
+      "glassbox_lite": {
+        "tp": 24,
+        "fp": 3,
+        "fn": 12,
+        "tn": 36,
+        "precision": 0.8888888888888888,
+        "recall": 0.6666666666666666,
+        "f1": 0.761904761904762,
+        "f1_ci": [
+          0.6296296296296297,
+          0.8679245283018867
+        ]
+      },
+      "keyword_informed": {
+        "tp": 6,
+        "fp": 2,
+        "fn": 30,
+        "tn": 37,
+        "precision": 0.75,
+        "recall": 0.16666666666666666,
+        "f1": 0.27272727272727276,
+        "f1_ci": [
+          0.09999999999999999,
+          0.4444444444444445
+        ]
+      },
+      "keyword_blind": {
+        "tp": 2,
+        "fp": 1,
+        "fn": 34,
+        "tn": 38,
+        "precision": 0.6666666666666666,
+        "recall": 0.05555555555555555,
+        "f1": 0.10256410256410256,
+        "f1_ci": [
+          0.0,
+          0.2424242424242424
+        ]
+      },
+      "naive_computed": {
+        "tp": 19,
+        "fp": 0,
+        "fn": 17,
+        "tn": 39,
+        "precision": 1.0,
+        "recall": 0.5277777777777778,
+        "f1": 0.6909090909090909,
+        "f1_ci": [
+          0.5333333333333333,
+          0.8148148148148148
+        ]
+      },
+      "nemo_injection": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 36,
+        "tn": 39,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f1_ci": [
+          0.0,
+          0.0
+        ]
+      },
+      "presidio": {
+        "tp": 4,
+        "fp": 4,
+        "fn": 32,
+        "tn": 35,
+        "precision": 0.5,
+        "recall": 0.1111111111111111,
+        "f1": 0.1818181818181818,
+        "f1_ci": [
+          0.044444444444444446,
+          0.3333333333333333
+        ]
+      },
+      "length_heuristic": {
+        "tp": 24,
+        "fp": 33,
+        "fn": 12,
+        "tn": 6,
+        "precision": 0.42105263157894735,
+        "recall": 0.6666666666666666,
+        "f1": 0.5161290322580646,
+        "f1_ci": [
+          0.38202247191011235,
+          0.6326530612244898
+        ]
+      },
+      "random_p": {
+        "tp": 18,
+        "fp": 12,
+        "fn": 18,
+        "tn": 27,
+        "precision": 0.6,
+        "recall": 0.5,
+        "f1": 0.5454545454545454,
+        "f1_ci": [
+          0.39215686274509803,
+          0.6774193548387097
+        ]
+      },
+      "always_flag": {
+        "tp": 36,
+        "fp": 39,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.48,
+        "recall": 1.0,
+        "f1": 0.6486486486486487,
+        "f1_ci": [
+          0.5436893203883496,
+          0.7499999999999999
+        ]
+      },
+      "never_flag": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 36,
+        "tn": 39,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f1_ci": [
+          0.0,
+          0.0
+        ]
+      }
+    }
+  },
+  "per_axis_aligned": {
+    "glassbox_lite": {
+      "arith": {
+        "tp": 16,
+        "fp": 0,
+        "fn": 0,
+        "tn": 16,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "contra": {
+        "tp": 6,
+        "fp": 0,
+        "fn": 0,
+        "tn": 6,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "cert": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 4,
+        "tn": 4,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cite": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 4,
+        "tn": 3,
+        "precision": 1.0,
+        "recall": 0.3333333333333333,
+        "f1": 0.5
+      },
+      "inj": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 4,
+        "tn": 4,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "keyword_informed": {
+      "arith": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 16,
+        "tn": 16,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "contra": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 6,
+        "tn": 6,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cert": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 1,
+        "tn": 4,
+        "precision": 1.0,
+        "recall": 0.75,
+        "f1": 0.8571428571428571
+      },
+      "cite": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 5,
+        "tn": 3,
+        "precision": 1.0,
+        "recall": 0.16666666666666666,
+        "f1": 0.2857142857142857
+      },
+      "inj": {
+        "tp": 2,
+        "fp": 2,
+        "fn": 2,
+        "tn": 2,
+        "precision": 0.5,
+        "recall": 0.5,
+        "f1": 0.5
+      }
+    },
+    "keyword_blind": {
+      "arith": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 16,
+        "tn": 16,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "contra": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 6,
+        "tn": 6,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cert": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 3,
+        "tn": 4,
+        "precision": 1.0,
+        "recall": 0.25,
+        "f1": 0.4
+      },
+      "cite": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 6,
+        "tn": 3,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "inj": {
+        "tp": 1,
+        "fp": 1,
+        "fn": 3,
+        "tn": 3,
+        "precision": 0.5,
+        "recall": 0.25,
+        "f1": 0.3333333333333333
+      }
+    },
+    "naive_computed": {
+      "arith": {
+        "tp": 16,
+        "fp": 0,
+        "fn": 0,
+        "tn": 16,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "contra": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 3,
+        "tn": 6,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666
+      },
+      "cert": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 4,
+        "tn": 4,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cite": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 6,
+        "tn": 3,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "inj": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 4,
+        "tn": 4,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "nemo_injection": {
+      "arith": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 16,
+        "tn": 16,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "contra": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 6,
+        "tn": 6,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cert": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 4,
+        "tn": 4,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cite": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 6,
+        "tn": 3,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "inj": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 4,
+        "tn": 4,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "presidio": {
+      "arith": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 16,
+        "tn": 16,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "contra": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 6,
+        "tn": 6,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cert": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 4,
+        "tn": 4,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cite": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 6,
+        "tn": 3,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "inj": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 4,
+        "tn": 4,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "length_heuristic": {
+      "arith": {
+        "tp": 16,
+        "fp": 16,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666
+      },
+      "contra": {
+        "tp": 6,
+        "fp": 5,
+        "fn": 0,
+        "tn": 1,
+        "precision": 0.5454545454545454,
+        "recall": 1.0,
+        "f1": 0.7058823529411764
+      },
+      "cert": {
+        "tp": 0,
+        "fp": 3,
+        "fn": 4,
+        "tn": 1,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cite": {
+        "tp": 1,
+        "fp": 2,
+        "fn": 5,
+        "tn": 1,
+        "precision": 0.3333333333333333,
+        "recall": 0.16666666666666666,
+        "f1": 0.2222222222222222
+      },
+      "inj": {
+        "tp": 1,
+        "fp": 3,
+        "fn": 3,
+        "tn": 1,
+        "precision": 0.25,
+        "recall": 0.25,
+        "f1": 0.25
+      }
+    },
+    "random_p": {
+      "arith": {
+        "tp": 8,
+        "fp": 5,
+        "fn": 8,
+        "tn": 11,
+        "precision": 0.6153846153846154,
+        "recall": 0.5,
+        "f1": 0.5517241379310345
+      },
+      "contra": {
+        "tp": 3,
+        "fp": 3,
+        "fn": 3,
+        "tn": 3,
+        "precision": 0.5,
+        "recall": 0.5,
+        "f1": 0.5
+      },
+      "cert": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 1,
+        "tn": 4,
+        "precision": 1.0,
+        "recall": 0.75,
+        "f1": 0.8571428571428571
+      },
+      "cite": {
+        "tp": 2,
+        "fp": 1,
+        "fn": 4,
+        "tn": 2,
+        "precision": 0.6666666666666666,
+        "recall": 0.3333333333333333,
+        "f1": 0.4444444444444444
+      },
+      "inj": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 2,
+        "tn": 4,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666
+      }
+    },
+    "always_flag": {
+      "arith": {
+        "tp": 16,
+        "fp": 16,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666
+      },
+      "contra": {
+        "tp": 6,
+        "fp": 6,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666
+      },
+      "cert": {
+        "tp": 4,
+        "fp": 4,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666
+      },
+      "cite": {
+        "tp": 6,
+        "fp": 3,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.6666666666666666,
+        "recall": 1.0,
+        "f1": 0.8
+      },
+      "inj": {
+        "tp": 4,
+        "fp": 4,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666
+      }
+    },
+    "never_flag": {
+      "arith": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 16,
+        "tn": 16,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "contra": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 6,
+        "tn": 6,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cert": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 4,
+        "tn": 4,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cite": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 6,
+        "tn": 3,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "inj": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 4,
+        "tn": 4,
+        "precision": NaN,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    }
+  },
+  "clean_controls": {
+    "glassbox_lite": {
+      "fp": 3,
+      "n": 6
+    },
+    "keyword_informed": {
+      "fp": 0,
+      "n": 6
+    },
+    "keyword_blind": {
+      "fp": 0,
+      "n": 6
+    },
+    "naive_computed": {
+      "fp": 0,
+      "n": 6
+    },
+    "nemo_injection": {
+      "fp": 0,
+      "n": 6
+    },
+    "presidio": {
+      "fp": 0,
+      "n": 6
+    },
+    "length_heuristic": {
+      "fp": 4,
+      "n": 6
+    },
+    "random_p": {
+      "fp": 3,
+      "n": 6
+    },
+    "always_flag": {
+      "fp": 6,
+      "n": 6
+    },
+    "never_flag": {
+      "fp": 0,
+      "n": 6
+    }
+  },
+  "cost_axes": {
+    "glassbox_lite": {
+      "install": "npm ci && npm run build",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.1594,
+      "ms_p95": 0.2968,
+      "deterministic": "yes"
+    },
+    "keyword_informed": {
+      "install": "none",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.0466,
+      "ms_p95": 0.0503,
+      "deterministic": "yes"
+    },
+    "keyword_blind": {
+      "install": "none",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.0439,
+      "ms_p95": 0.0466,
+      "deterministic": "yes"
+    },
+    "naive_computed": {
+      "install": "none",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.0025,
+      "ms_p95": 0.0068,
+      "deterministic": "yes"
+    },
+    "nemo_injection": {
+      "install": "pip install nemoguardrails yara-python",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.3201,
+      "ms_p95": 0.4077,
+      "deterministic": "yes"
+    },
+    "presidio": {
+      "install": "pip install presidio-analyzer spacy + en_core_web_lg (~590MB)",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": true,
+      "ms_mean": 3.1341,
+      "ms_p95": 2.8373,
+      "deterministic": "yes"
+    },
+    "length_heuristic": {
+      "install": "none",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.0012,
+      "ms_p95": 0.0018,
+      "deterministic": "yes"
+    },
+    "random_p": {
+      "install": "none",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.0006,
+      "ms_p95": 0.0007,
+      "deterministic": "yes"
+    },
+    "always_flag": {
+      "install": "none",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.0001,
+      "ms_p95": 0.0001,
+      "deterministic": "yes"
+    },
+    "never_flag": {
+      "install": "none",
+      "run_key": false,
+      "run_network": false,
+      "run_weights": false,
+      "ms_mean": 0.0001,
+      "ms_p95": 0.0001,
+      "deterministic": "yes"
+    }
+  }
+}
